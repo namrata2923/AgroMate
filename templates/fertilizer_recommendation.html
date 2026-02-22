@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Fertilizer Recommendation – AgroMate{% endblock %}
+
+{% block content %}
+
+<!-- Page Hero -->
+<section class="page-hero page-hero-fertilizer">
+  <div class="page-hero-overlay"></div>
+  <div class="container text-center">
+    <span class="section-tag-light" data-aos="fade-up">ML TOOL — 02</span>
+    <h1 class="page-hero-title" data-aos="fade-up" data-aos-delay="100">Fertilizer Recommendation</h1>
+    <p class="page-hero-subtitle" data-aos="fade-up" data-aos-delay="200">
+      Get the right fertilizer for your soil type and crop combination.
+    </p>
+    <nav aria-label="breadcrumb" data-aos="fade-up" data-aos-delay="300">
+      <ol class="breadcrumb justify-content-center">
+        <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+        <li class="breadcrumb-item active">Fertilizer Recommendation</li>
+      </ol>
+    </nav>
+  </div>
+</section>
+
+<!-- Main Content -->
+<section class="section-padding">
+  <div class="container">
+    <div class="row justify-content-center gy-5">
+
+      <!-- Form -->
+      <div class="col-lg-7">
+        <div class="tool-card" data-aos="fade-up">
+          <div class="tool-card-header">
+            <div class="tool-icon fertilizer"><i class="bi bi-droplet-fill"></i></div>
+            <div>
+              <h4 class="mb-0">Enter Farm Details</h4>
+              <p class="text-muted small mb-0">All fields are required</p>
+            </div>
+          </div>
+
+          <form method="POST" action="{{ url_for('fertilizer_recommendation') }}" class="mt-4">
+            <div class="row g-3">
+
+              <!-- Soil Type -->
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">
+                  <i class="bi bi-layers-fill text-brown me-2"></i>Soil Type
+                </label>
+                <select name="soil_type" class="form-select" required>
+                  <option value="" disabled selected>Select soil type</option>
+                  {% for s in soil_types %}
+                  <option value="{{ s }}">{{ s }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <!-- Crop Type -->
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">
+                  <i class="bi bi-seedling text-green me-2"></i>Crop Type
+                </label>
+                <select name="crop_type" class="form-select" required>
+                  <option value="" disabled selected>Select crop</option>
+                  {% for c in crop_types %}
+                  <option value="{{ c }}">{{ c }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <!-- Temperature -->
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Temperature (°C)</label>
+                <input type="number" step="0.1" name="temperature" class="form-control" placeholder="e.g. 26" required />
+              </div>
+
+              <!-- Humidity -->
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Humidity (%)</label>
+                <input type="number" step="0.1" name="humidity" class="form-control" placeholder="e.g. 52" required />
+              </div>
+
+              <!-- Moisture -->
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Soil Moisture (%)</label>
+                <input type="number" step="0.1" name="moisture" class="form-control" placeholder="e.g. 38" required />
+              </div>
+
+              <!-- NPK -->
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">
+                  <i class="bi bi-circle-fill text-success me-2 small"></i>Nitrogen (N)
+                </label>
+                <input type="number" step="0.1" name="nitrogen" class="form-control" placeholder="kg/ha" required />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">
+                  <i class="bi bi-circle-fill text-warning me-2 small"></i>Phosphorus (P)
+                </label>
+                <input type="number" step="0.1" name="phosphorus" class="form-control" placeholder="kg/ha" required />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">
+                  <i class="bi bi-circle-fill text-danger me-2 small"></i>Potassium (K)
+                </label>
+                <input type="number" step="0.1" name="potassium" class="form-control" placeholder="kg/ha" required />
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-fertilizer w-100 mt-4 py-3 fs-5 fw-semibold">
+              <i class="bi bi-droplet-fill me-2"></i>Get Fertilizer Recommendation
+            </button>
+          </form>
+
+          {% if result %}
+          <div class="result-box result-box-fertilizer mt-4" data-aos="zoom-in">
+            <div class="result-icon fertilizer-icon"><i class="bi bi-patch-check-fill"></i></div>
+            <div>
+              <p class="result-label">Recommended Fertilizer</p>
+              <h3 class="result-value">{{ result }}</h3>
+              <p class="result-hint text-muted small">
+                Apply <strong>{{ result }}</strong> to optimise nutrient balance for selected soil and crop.
+              </p>
+            </div>
+          </div>
+          {% endif %}
+
+          {% if error %}
+          <div class="alert alert-danger mt-4">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error }}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="col-lg-5">
+        <div class="info-card mb-4" data-aos="fade-up" data-aos-delay="100">
+          <h5 class="info-card-title"><i class="bi bi-info-circle-fill me-2 text-fertilizer"></i>How It Works</h5>
+          <ol class="info-list">
+            <li>Select your soil type and the crop you want to grow.</li>
+            <li>Enter climate data: temperature, humidity and moisture.</li>
+            <li>Provide current NPK levels from a soil test.</li>
+            <li>Our model compares your data against optimal nutrient profiles.</li>
+            <li>Receive the most suitable fertilizer recommendation.</li>
+          </ol>
+        </div>
+
+        <!-- Fertilizer cards -->
+        <div class="info-card" data-aos="fade-up" data-aos-delay="200">
+          <h5 class="info-card-title"><i class="bi bi-grid-fill me-2 text-fertilizer"></i>Supported Fertilizers</h5>
+          <div class="row g-2 mt-2">
+            {% for f, desc in [("Urea","High-N; general purpose"),("DAP","P-rich; ideal for seedling"),("14-35-14","Balanced NPK"),("28-28","N & P balanced"),("17-17-17","Equal NPK blend"),("20-20","N-P balanced"),("10-26-26","High P & K")] %}
+            <div class="col-6">
+              <div class="fertilizer-chip">
+                <span class="fw-bold">{{ f }}</span>
+                <span class="small text-muted d-block">{{ desc }}</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+{% endblock %}

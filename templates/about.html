@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}About Us – AgroMate{% endblock %}
+
+{% block content %}
+
+<!-- Page Hero -->
+<section class="page-hero page-hero-about">
+  <div class="page-hero-overlay"></div>
+  <div class="container text-center">
+    <h1 class="page-hero-title" data-aos="fade-up">About AgroMate</h1>
+    <p class="page-hero-subtitle" data-aos="fade-up" data-aos-delay="100">
+      Our mission is to empower every farmer with the power of AI.
+    </p>
+    <nav aria-label="breadcrumb" data-aos="fade-up" data-aos-delay="200">
+      <ol class="breadcrumb justify-content-center">
+        <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+        <li class="breadcrumb-item active">About</li>
+      </ol>
+    </nav>
+  </div>
+</section>
+
+<!-- Story -->
+<section class="section-padding">
+  <div class="container">
+    <div class="row align-items-center gy-5">
+      <div class="col-lg-6" data-aos="fade-right">
+        <img src="https://images.unsplash.com/photo-1592878904946-b3cd8ae243d0?w=700&q=80"
+             alt="Agriculture" class="img-fluid rounded-4 shadow" />
+      </div>
+      <div class="col-lg-6" data-aos="fade-left">
+        <span class="section-tag">OUR STORY</span>
+        <h2 class="section-title">Bridging Technology &amp; Agriculture</h2>
+        <p class="text-muted">
+          AgroMate was born out of a simple question: <em>why can't farmers have access to the same 
+          data-driven insights that large agribusinesses do?</em>
+        </p>
+        <p class="text-muted">
+          We built a suite of machine learning tools — accessible from any smartphone — 
+          that put crop prediction, fertilizer advisory, plant disease detection, and 
+          weather-based farming insights directly into the farmer's hands.
+        </p>
+        <p class="text-muted">
+          Today AgroMate serves over 10,000 farmers across Maharashtra, Karnataka, and 
+          Andhra Pradesh, and we're expanding every month.
+        </p>
+        <div class="row g-3 mt-3">
+          <div class="col-6">
+            <div class="about-stat-card">
+              <h3 class="text-green mb-0">2021</h3>
+              <p class="small text-muted mb-0">Founded</p>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="about-stat-card">
+              <h3 class="text-green mb-0">3 States</h3>
+              <p class="small text-muted mb-0">Coverage</p>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="about-stat-card">
+              <h3 class="text-green mb-0">10K+</h3>
+              <p class="small text-muted mb-0">Farmers Helped</p>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="about-stat-card">
+              <h3 class="text-green mb-0">4</h3>
+              <p class="small text-muted mb-0">ML Models</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Team -->
+<section class="section-padding bg-light-green">
+  <div class="container">
+    <div class="section-header text-center mb-5" data-aos="fade-up">
+      <span class="section-tag">MEET THE TEAM</span>
+      <h2 class="section-title">The Minds Behind AgroMate</h2>
+    </div>
+    <div class="row g-4 justify-content-center">
+      {% for member in [
+          {"name":"Aarav Sharma","role":"ML Engineer","img":"11","desc":"Specialises in crop prediction models and NLP for agri-reports."},
+          {"name":"Priya Nair","role":"Data Scientist","img":"35","desc":"Leads dataset curation, feature engineering and model validation."},
+          {"name":"Rajan Mehta","role":"Backend Developer","img":"61","desc":"Architects the Flask APIs and cloud deployment pipeline."},
+          {"name":"Ananya Roy","role":"UI/UX Designer","img":"47","desc":"Crafts the user experience to be intuitive for farmers."}
+      ] %}
+      <div class="col-lg-3 col-md-6" data-aos="zoom-in" data-aos-delay="{{ loop.index * 100 }}">
+        <div class="team-card">
+          <img src="https://i.pravatar.cc/160?img={{ member.img }}" alt="{{ member.name }}" class="team-avatar" />
+          <h5 class="team-name">{{ member.name }}</h5>
+          <span class="team-role">{{ member.role }}</span>
+          <p class="team-desc text-muted small">{{ member.desc }}</p>
+          <div class="d-flex justify-content-center gap-2">
+            <a href="#" class="team-social"><i class="bi bi-linkedin"></i></a>
+            <a href="#" class="team-social"><i class="bi bi-github"></i></a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- Tech Stack -->
+<section class="section-padding">
+  <div class="container">
+    <div class="section-header text-center mb-5" data-aos="fade-up">
+      <span class="section-tag">TECHNOLOGY</span>
+      <h2 class="section-title">Built with Modern AI Tools</h2>
+    </div>
+    <div class="row g-3 justify-content-center">
+      {% for tech in [
+          ("Python","bi-filetype-py","#3776AB"),
+          ("Flask","bi-lightning-charge-fill","#000"),
+          ("Scikit-learn","bi-diagram-3-fill","#F7931E"),
+          ("TensorFlow","bi-cpu-fill","#FF6F00"),
+          ("Pandas","bi-table","#150458"),
+          ("NumPy","bi-grid-3x3-gap-fill","#013243"),
+          ("Bootstrap","bi-bootstrap-fill","#7952B3"),
+          ("OpenCV","bi-camera-fill","#5C3EE8"),
+      ] %}
+      <div class="col-6 col-md-3 col-lg-2" data-aos="zoom-in" data-aos-delay="{{ loop.index * 50 }}">
+        <div class="tech-chip">
+          <i class="bi {{ tech[1] }}" style="color: {{ tech[2] }}; font-size: 1.8rem;"></i>
+          <span>{{ tech[0] }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Sign Up – AgroMate{% endblock %}
+
+{% block content %}
+<section class="auth-section">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-8 col-md-10">
+
+        <!-- Header -->
+        <div class="text-center mb-4" data-aos="fade-down">
+          <a href="{{ url_for('index') }}" class="d-inline-flex align-items-center gap-2 text-decoration-none mb-3">
+            <div class="brand-icon"><i class="bi bi-flower2"></i></div>
+            <span class="brand-text">Agro<span class="brand-accent">Mate</span></span>
+          </a>
+          <h2 class="fw-bold">Create Your Account</h2>
+          <p class="text-muted">Join thousands of farmers using AI-powered insights</p>
+        </div>
+
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% for cat, msg in messages %}
+          <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
+            <i class="bi bi-{{ 'check-circle' if cat == 'success' else 'exclamation-triangle' }}-fill me-2"></i>{{ msg }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+          {% endfor %}
+        {% endwith %}
+
+        <div class="auth-card" data-aos="fade-up">
+          <form method="POST" action="{{ url_for('signup') }}">
+
+            <!-- Section: Account Details -->
+            <div class="auth-section-label">
+              <i class="bi bi-person-fill me-2"></i>Account Details
+            </div>
+            <div class="row g-3 mb-4">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-person"></i></span>
+                  <input type="text" name="full_name" class="form-control"
+                         placeholder="e.g. Ramesh Patil" required />
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Email Address <span class="text-danger">*</span></label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                  <input type="email" name="email" class="form-control"
+                         placeholder="you@example.com" required />
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Password <span class="text-danger">*</span></label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                  <input type="password" name="password" id="password" class="form-control"
+                         placeholder="Min. 6 characters" required />
+                  <button class="btn btn-outline-secondary toggle-pwd" type="button" data-target="password">
+                    <i class="bi bi-eye"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Confirm Password <span class="text-danger">*</span></label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+                  <input type="password" name="confirm_password" id="confirm_password" class="form-control"
+                         placeholder="Re-enter password" required />
+                  <button class="btn btn-outline-secondary toggle-pwd" type="button" data-target="confirm_password">
+                    <i class="bi bi-eye"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section: Farm Profile -->
+            <div class="auth-section-label">
+              <i class="bi bi-geo-alt-fill me-2"></i>Farm Profile <span class="text-muted fw-normal">(optional)</span>
+            </div>
+            <div class="row g-3 mb-4">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Location / Village</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-pin-map"></i></span>
+                  <input type="text" name="location" class="form-control"
+                         placeholder="e.g. Nashik, Maharashtra" />
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Farm Size</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-rulers"></i></span>
+                  <input type="text" name="farm_size" class="form-control"
+                         placeholder="e.g. 5 acres" />
+                </div>
+              </div>
+              <div class="col-md-12">
+                <label class="form-label fw-semibold">Primary Crop(s)</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-seedling"></i></span>
+                  <input type="text" name="crop_type" class="form-control"
+                         placeholder="e.g. Wheat, Rice, Cotton" />
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-green w-100 py-3 fs-5 fw-semibold">
+              <i class="bi bi-person-plus-fill me-2"></i>Create My Account
+            </button>
+
+            <p class="text-center text-muted mt-3 mb-0">
+              Already have an account?
+              <a href="{{ url_for('login') }}" class="text-green fw-semibold">Log in here</a>
+            </p>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  document.querySelectorAll('.toggle-pwd').forEach(btn => {
+    btn.addEventListener('click', function () {
+      const input = document.getElementById(this.dataset.target);
+      const icon  = this.querySelector('i');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+      } else {
+        input.type = 'password';
+        icon.className = 'bi bi-eye';
+      }
+    });
+  });
+</script>
+{% endblock %}

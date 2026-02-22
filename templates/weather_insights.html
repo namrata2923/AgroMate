@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Weather Insights – AgroMate{% endblock %}
+
+{% block content %}
+
+<!-- Page Hero -->
+<section class="page-hero page-hero-weather">
+  <div class="page-hero-overlay"></div>
+  <div class="container text-center">
+    <span class="section-tag-light" data-aos="fade-up">ML TOOL — 04</span>
+    <h1 class="page-hero-title" data-aos="fade-up" data-aos-delay="100">Weather Insights</h1>
+    <p class="page-hero-subtitle" data-aos="fade-up" data-aos-delay="200">
+      Real-time weather analysis and forecasts tailored for precision farming.
+    </p>
+    <nav aria-label="breadcrumb" data-aos="fade-up" data-aos-delay="300">
+      <ol class="breadcrumb justify-content-center">
+        <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+        <li class="breadcrumb-item active">Weather Insights</li>
+      </ol>
+    </nav>
+  </div>
+</section>
+
+<section class="section-padding">
+  <div class="container">
+
+    <!-- Current Weather -->
+    <div class="weather-main-card mb-5" data-aos="fade-up">
+      <div class="row align-items-center g-4">
+        <div class="col-md-5 text-center">
+          <i class="bi bi-cloud-sun weather-main-icon"></i>
+          <div class="weather-temp">{{ weather.temperature }}<span class="weather-unit">°C</span></div>
+          <div class="weather-condition">{{ weather.condition }}</div>
+          <div class="weather-city"><i class="bi bi-geo-alt-fill me-1"></i>{{ weather.city }}</div>
+        </div>
+        <div class="col-md-7">
+          <div class="row g-3">
+            <div class="col-6">
+              <div class="weather-detail-card">
+                <i class="bi bi-droplet-fill text-info"></i>
+                <span class="detail-value">{{ weather.humidity }}%</span>
+                <span class="detail-label">Humidity</span>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="weather-detail-card">
+                <i class="bi bi-wind text-primary"></i>
+                <span class="detail-value">{{ weather.wind_speed }} km/h</span>
+                <span class="detail-label">Wind Speed</span>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="weather-detail-card">
+                <i class="bi bi-cloud-rain-fill text-secondary"></i>
+                <span class="detail-value">{{ weather.rainfall_chance }}%</span>
+                <span class="detail-label">Rain Chance</span>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="weather-detail-card">
+                <i class="bi bi-sun-fill text-warning"></i>
+                <span class="detail-value">{{ weather.uv_index }}</span>
+                <span class="detail-label">UV Index</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5-Day Forecast -->
+    <div class="section-header text-center mb-4" data-aos="fade-up">
+      <h4 class="fw-bold">5-Day Forecast</h4>
+    </div>
+    <div class="row g-3 mb-5">
+      {% for day in weather.forecast %}
+      <div class="col" data-aos="fade-up" data-aos-delay="{{ loop.index * 100 }}">
+        <div class="forecast-card text-center">
+          <div class="forecast-day">{{ day.day }}</div>
+          <i class="bi bi-{{ day.icon }} forecast-icon"></i>
+          <div class="forecast-high">{{ day.high }}°</div>
+          <div class="forecast-low text-muted">{{ day.low }}°</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Farming Advice -->
+    <div class="row g-4">
+      <div class="col-lg-4" data-aos="fade-up" data-aos-delay="100">
+        <div class="advice-card advice-irrigation">
+          <i class="bi bi-droplet-half advice-icon"></i>
+          <h5>Irrigation Advisory</h5>
+          <p>
+            {% if weather.humidity > 70 %}
+              High humidity detected. Consider reducing irrigation by 20% to prevent waterlogging.
+            {% elif weather.humidity < 40 %}
+              Low humidity. Increase irrigation frequency or check drip schedules.
+            {% else %}
+              Humidity levels are optimal. Maintain regular irrigation schedule.
+            {% endif %}
+          </p>
+        </div>
+      </div>
+      <div class="col-lg-4" data-aos="fade-up" data-aos-delay="200">
+        <div class="advice-card advice-harvest">
+          <i class="bi bi-calendar2-check advice-icon"></i>
+          <h5>Harvesting Window</h5>
+          <p>
+            {% if weather.rainfall_chance < 20 %}
+              Excellent conditions for harvesting in the next 48 hours. Low rain probability.
+            {% elif weather.rainfall_chance < 50 %}
+              Moderate risk of rain. Plan harvest for morning slots when possible.
+            {% else %}
+              High rain probability. Delay harvesting if crop is mature to avoid spoilage.
+            {% endif %}
+          </p>
+        </div>
+      </div>
+      <div class="col-lg-4" data-aos="fade-up" data-aos-delay="300">
+        <div class="advice-card advice-uv">
+          <i class="bi bi-sun advice-icon"></i>
+          <h5>Spraying Conditions</h5>
+          <p>
+            {% if weather.wind_speed < 10 %}
+              Wind speed is low — ideal conditions for pesticide/fertilizer spraying.
+            {% elif weather.wind_speed < 20 %}
+              Moderate wind. Use low-drift nozzles when spraying.
+            {% else %}
+              High wind speed. Avoid spraying to prevent chemical drift.
+            {% endif %}
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+{% endblock %}

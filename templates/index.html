@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+{% block title %}AgroMate – Smart Insights for Better Farming{% endblock %}
+
+{% block content %}
+
+<!-- ====== HERO ====== -->
+<section class="hero-section" id="hero">
+  <div class="hero-overlay"></div>
+  <div class="container h-100 d-flex align-items-center">
+    <div class="hero-content" data-aos="fade-up">
+      <span class="hero-badge">🌱 AI-Powered Agriculture</span>
+      <h1 class="hero-title">
+        Smart Insights<br>for <span class="text-accent">Better Farming</span>
+      </h1>
+      <p class="hero-subtitle">
+        Harness the power of Machine Learning to grow smarter —
+        predict the best crops, get personalised fertilizer advice,
+        detect plant diseases early, and stay ahead of the weather.
+      </p>
+      <div class="d-flex flex-wrap gap-3 mt-4">
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('crop_prediction') }}" class="btn btn-green btn-lg px-5">
+          <i class="bi bi-cpu me-2"></i>Try Our Services
+        </a>
+        <a href="{{ url_for('profile') }}" class="btn btn-outline-light btn-lg px-5">
+          <i class="bi bi-person-circle me-2"></i>My Profile
+        </a>
+        {% else %}
+        <a href="{{ url_for('signup') }}" class="btn btn-green btn-lg px-5">
+          <i class="bi bi-person-plus me-2"></i>Get Started Free
+        </a>
+        <a href="{{ url_for('login') }}" class="btn btn-outline-light btn-lg px-5">
+          Log In <i class="bi bi-arrow-right ms-2"></i>
+        </a>
+        {% endif %}
+      </div>
+      <!-- Stats -->
+      <div class="hero-stats d-flex flex-wrap gap-4 mt-5">
+        <div class="stat-item">
+          <span class="stat-number">95%</span>
+          <span class="stat-label">Prediction Accuracy</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-number">22+</span>
+          <span class="stat-label">Crops Supported</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-number">10K+</span>
+          <span class="stat-label">Farmers Helped</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Scroll indicator -->
+  <div class="scroll-indicator">
+    <a href="#services"><i class="bi bi-chevron-double-down"></i></a>
+  </div>
+</section>
+
+<!-- ====== MARQUEE STRIP ====== -->
+<div class="marquee-strip">
+  <div class="marquee-inner">
+    <span><i class="bi bi-flower2 me-2"></i>Crop Prediction</span>
+    <span><i class="bi bi-droplet-fill me-2"></i>Fertilizer Advisor</span>
+    <span><i class="bi bi-bug-fill me-2"></i>Disease Detection</span>
+    <span><i class="bi bi-cloud-sun-fill me-2"></i>Weather Insights</span>
+    <span><i class="bi bi-graph-up-arrow me-2"></i>Yield Estimation</span>
+    <span><i class="bi bi-shield-check me-2"></i>AI-Powered Analysis</span>
+    <span><i class="bi bi-flower2 me-2"></i>Crop Prediction</span>
+    <span><i class="bi bi-droplet-fill me-2"></i>Fertilizer Advisor</span>
+    <span><i class="bi bi-bug-fill me-2"></i>Disease Detection</span>
+    <span><i class="bi bi-cloud-sun-fill me-2"></i>Weather Insights</span>
+    <span><i class="bi bi-graph-up-arrow me-2"></i>Yield Estimation</span>
+    <span><i class="bi bi-shield-check me-2"></i>AI-Powered Analysis</span>
+  </div>
+</div>
+
+<!-- ====== SERVICES ====== -->
+<section class="section-padding" id="services">
+  <div class="container">
+    <div class="section-header text-center mb-5" data-aos="fade-up">
+      <span class="section-tag">WHAT WE OFFER</span>
+      <h2 class="section-title">ML-Powered Farming Tools</h2>
+      <p class="section-subtitle">
+        Four intelligent modules designed to empower every farmer with data-driven decisions.
+      </p>
+    </div>
+
+    <div class="row g-4">
+      <!-- Crop Prediction -->
+      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="100">
+        <div class="service-card">
+          <div class="service-icon-wrap crop">
+            <i class="bi bi-seedling"></i>
+          </div>
+          <span class="service-number">01</span>
+          <h4 class="service-title">Crop Prediction</h4>
+          <p class="service-desc">
+            Enter soil nutrients (N, P, K), temperature, humidity, pH and rainfall — 
+            our model recommends the best crop for your land.
+          </p>
+          <a href="{{ url_for('crop_prediction') }}" class="service-link">
+            Try Now <i class="bi bi-arrow-right ms-1"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- Fertilizer -->
+      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="200">
+        <div class="service-card">
+          <div class="service-icon-wrap fertilizer">
+            <i class="bi bi-droplet-fill"></i>
+          </div>
+          <span class="service-number">02</span>
+          <h4 class="service-title">Fertilizer Advisory</h4>
+          <p class="service-desc">
+            Select your soil type and crop, provide nutrient & climate data, 
+            and get the most suitable fertilizer recommendation instantly.
+          </p>
+          <a href="{{ url_for('fertilizer_recommendation') }}" class="service-link">
+            Try Now <i class="bi bi-arrow-right ms-1"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- Disease Detection -->
+      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="300">
+        <div class="service-card">
+          <div class="service-icon-wrap disease">
+            <i class="bi bi-bug-fill"></i>
+          </div>
+          <span class="service-number">03</span>
+          <h4 class="service-title">Disease Detection</h4>
+          <p class="service-desc">
+            Upload a photo of your plant leaf and our deep learning model 
+            identifies diseases with high accuracy — act before it's too late.
+          </p>
+          <a href="{{ url_for('disease_detection') }}" class="service-link">
+            Try Now <i class="bi bi-arrow-right ms-1"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- Weather -->
+      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="400">
+        <div class="service-card">
+          <div class="service-icon-wrap weather">
+            <i class="bi bi-cloud-sun-fill"></i>
+          </div>
+          <span class="service-number">04</span>
+          <h4 class="service-title">Weather Insights</h4>
+          <p class="service-desc">
+            Real-time weather data and 5-day forecasts tailored for farming — 
+            plan irrigation, harvesting and sowing with confidence.
+          </p>
+          <a href="{{ url_for('weather_insights') }}" class="service-link">
+            View Now <i class="bi bi-arrow-right ms-1"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== ABOUT / WHY US ====== -->
+<section class="section-padding bg-light-green" id="about">
+  <div class="container">
+    <div class="row align-items-center gy-5">
+      <!-- Image collage -->
+      <div class="col-lg-6" data-aos="fade-right">
+        <div class="about-gallery">
+          <img src="https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=600&q=80" 
+               class="about-img-main" alt="Farmer in field" />
+          <img src="https://images.unsplash.com/photo-1574943320219-553eb213f72d?w=300&q=80" 
+               class="about-img-sm about-img-sm1" alt="Crop rows" />
+          <img src="https://images.unsplash.com/photo-1586771107445-d3ca888129ff?w=300&q=80" 
+               class="about-img-sm about-img-sm2" alt="Plant leaf" />
+          <!-- Experience badge -->
+          <div class="experience-badge">
+            <span class="exp-number">5+</span>
+            <span class="exp-label">Years of<br>Innovation</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Text -->
+      <div class="col-lg-6" data-aos="fade-left">
+        <span class="section-tag">WHY CHOOSE AGROMATE</span>
+        <h2 class="section-title">More than 50 000 farmers trust AgroMate</h2>
+        <p class="text-muted mb-4">
+          We combine cutting-edge machine learning research with deep agricultural expertise 
+          to deliver practical tools that work in the field — not just in the lab.
+        </p>
+
+        <div class="why-feature d-flex gap-3 mb-3" data-aos="fade-up" data-aos-delay="100">
+          <div class="why-icon"><i class="bi bi-cpu-fill"></i></div>
+          <div>
+            <h6 class="fw-bold mb-1">Trained on Real Farm Data</h6>
+            <p class="text-muted small mb-0">Our models are trained on large, diverse Indian agricultural datasets for region-specific accuracy.</p>
+          </div>
+        </div>
+
+        <div class="why-feature d-flex gap-3 mb-3" data-aos="fade-up" data-aos-delay="200">
+          <div class="why-icon"><i class="bi bi-lightning-charge-fill"></i></div>
+          <div>
+            <h6 class="fw-bold mb-1">Instant Predictions</h6>
+            <p class="text-muted small mb-0">Results in under a second — no waiting, no complexity, just actionable answers.</p>
+          </div>
+        </div>
+
+        <div class="why-feature d-flex gap-3 mb-3" data-aos="fade-up" data-aos-delay="300">
+          <div class="why-icon"><i class="bi bi-phone-fill"></i></div>
+          <div>
+            <h6 class="fw-bold mb-1">Works on Any Device</h6>
+            <p class="text-muted small mb-0">Fully responsive design —  access AgroMate from your phone in the field or desktop at home.</p>
+          </div>
+        </div>
+
+        <div class="why-feature d-flex gap-3 mb-4" data-aos="fade-up" data-aos-delay="400">
+          <div class="why-icon"><i class="bi bi-shield-fill-check"></i></div>
+          <div>
+            <h6 class="fw-bold mb-1">Free & Open</h6>
+            <p class="text-muted small mb-0">AgroMate is free for individual farmers and researchers forever.</p>
+          </div>
+        </div>
+
+        <a href="{{ url_for('about') }}" class="btn btn-green px-5">
+          Learn More <i class="bi bi-arrow-right ms-2"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== STATS COUNTER ====== -->
+<section class="stats-section">
+  <div class="container">
+    <div class="row text-center gy-4">
+      <div class="col-6 col-md-3" data-aos="zoom-in" data-aos-delay="100">
+        <div class="counter-item">
+          <span class="counter-number" data-target="22">0</span>
+          <span class="counter-plus">+</span>
+          <p class="counter-label">Crops Predicted</p>
+        </div>
+      </div>
+      <div class="col-6 col-md-3" data-aos="zoom-in" data-aos-delay="200">
+        <div class="counter-item">
+          <span class="counter-number" data-target="95">0</span>
+          <span class="counter-plus">%</span>
+          <p class="counter-label">Model Accuracy</p>
+        </div>
+      </div>
+      <div class="col-6 col-md-3" data-aos="zoom-in" data-aos-delay="300">
+        <div class="counter-item">
+          <span class="counter-number" data-target="10000">0</span>
+          <span class="counter-plus">+</span>
+          <p class="counter-label">Farmers Helped</p>
+        </div>
+      </div>
+      <div class="col-6 col-md-3" data-aos="zoom-in" data-aos-delay="400">
+        <div class="counter-item">
+          <span class="counter-number" data-target="13">0</span>
+          <span class="counter-plus">+</span>
+          <p class="counter-label">Diseases Identified</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== QUICK TRY SECTION ====== -->
+<section class="section-padding" id="try">
+  <div class="container">
+    <div class="section-header text-center mb-5" data-aos="fade-up">
+      <span class="section-tag">GET STARTED</span>
+      <h2 class="section-title">Which tool do you need today?</h2>
+    </div>
+    <div class="row g-4">
+      <div class="col-sm-6 col-lg-3" data-aos="fade-up" data-aos-delay="100">
+        <a href="{{ url_for('crop_prediction') }}" class="quick-card crop-card text-decoration-none">
+          <i class="bi bi-seedling fs-1"></i>
+          <h5>What should I grow?</h5>
+          <p>Crop Prediction</p>
+        </a>
+      </div>
+      <div class="col-sm-6 col-lg-3" data-aos="fade-up" data-aos-delay="200">
+        <a href="{{ url_for('fertilizer_recommendation') }}" class="quick-card fertilizer-card text-decoration-none">
+          <i class="bi bi-droplet-fill fs-1"></i>
+          <h5>Which fertilizer?</h5>
+          <p>Fertilizer Advisor</p>
+        </a>
+      </div>
+      <div class="col-sm-6 col-lg-3" data-aos="fade-up" data-aos-delay="300">
+        <a href="{{ url_for('disease_detection') }}" class="quick-card disease-card text-decoration-none">
+          <i class="bi bi-bug-fill fs-1"></i>
+          <h5>Is my plant sick?</h5>
+          <p>Disease Detection</p>
+        </a>
+      </div>
+      <div class="col-sm-6 col-lg-3" data-aos="fade-up" data-aos-delay="400">
+        <a href="{{ url_for('weather_insights') }}" class="quick-card weather-card text-decoration-none">
+          <i class="bi bi-cloud-sun-fill fs-1"></i>
+          <h5>What's the weather?</h5>
+          <p>Weather Insights</p>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== TESTIMONIALS ====== -->
+<section class="section-padding bg-dark-green" id="testimonials">
+  <div class="container">
+    <div class="section-header text-center mb-5" data-aos="fade-up">
+      <span class="section-tag-light">TESTIMONIALS</span>
+      <h2 class="section-title text-white">What Farmers Say</h2>
+    </div>
+
+    <div id="testimonialCarousel" class="carousel slide" data-bs-ride="carousel">
+      <div class="carousel-inner">
+
+        <div class="carousel-item active">
+          <div class="row justify-content-center">
+            <div class="col-lg-8">
+              <div class="testimonial-card text-center">
+                <img src="https://i.pravatar.cc/80?img=11" class="testimonial-avatar" alt="Farmer" />
+                <div class="stars mb-2">
+                  <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                </div>
+                <p class="testimonial-text">
+                  "AgroMate's crop prediction suggested Chickpea for my field and the yield was 30% higher 
+                  than last year. This tool changed the way I farm!"
+                </p>
+                <h6 class="testimonial-name">Ramesh Patil</h6>
+                <span class="testimonial-role">Wheat & Pulse Farmer, Nashik</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="carousel-item">
+          <div class="row justify-content-center">
+            <div class="col-lg-8">
+              <div class="testimonial-card text-center">
+                <img src="https://i.pravatar.cc/80?img=47" class="testimonial-avatar" alt="Farmer" />
+                <div class="stars mb-2">
+                  <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-half"></i>
+                </div>
+                <p class="testimonial-text">
+                  "The disease detection module saved my tomato crop. I uploaded a photo and within seconds 
+                  got a diagnosis and treatment recommendation. Brilliant!"
+                </p>
+                <h6 class="testimonial-name">Sunita Devi</h6>
+                <span class="testimonial-role">Vegetable Farmer, Pune</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="carousel-item">
+          <div class="row justify-content-center">
+            <div class="col-lg-8">
+              <div class="testimonial-card text-center">
+                <img src="https://i.pravatar.cc/80?img=33" class="testimonial-avatar" alt="Farmer" />
+                <div class="stars mb-2">
+                  <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                </div>
+                <p class="testimonial-text">
+                  "The fertilizer advisor is spot on. I was over-applying Urea which was damaging my soil. 
+                  AgroMate recommended DAP and the results speak for themselves."
+                </p>
+                <h6 class="testimonial-name">Arvind Kumar</h6>
+                <span class="testimonial-role">Rice Farmer, Amravati</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="d-flex justify-content-center gap-2 mt-4">
+        <button class="carousel-btn" data-bs-target="#testimonialCarousel" data-bs-slide="prev">
+          <i class="bi bi-arrow-left"></i>
+        </button>
+        <button class="carousel-btn" data-bs-target="#testimonialCarousel" data-bs-slide="next">
+          <i class="bi bi-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== CTA BANNER ====== -->
+<section class="cta-section">
+  <div class="container text-center" data-aos="zoom-in">
+    <h2 class="cta-title">Ready to farm smarter?</h2>
+    <p class="cta-subtitle">Join thousands of farmers already using AgroMate to boost their yield.</p>
+    <div class="d-flex justify-content-center flex-wrap gap-3 mt-4">
+      {% if current_user.is_authenticated %}
+      <a href="{{ url_for('crop_prediction') }}" class="btn btn-green btn-lg px-5">Try Our Services</a>
+      <a href="{{ url_for('profile') }}" class="btn btn-outline-light btn-lg px-5">My Profile</a>
+      {% else %}
+      <a href="{{ url_for('signup') }}" class="btn btn-green btn-lg px-5">Start for Free</a>
+      <a href="{{ url_for('login') }}" class="btn btn-outline-light btn-lg px-5">Log In</a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+{% endblock %}
