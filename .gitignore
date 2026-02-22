@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -205,3 +206,40 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+=======
+# ── Virtual Environment ────────────────────────────────
+venv/
+.env
+
+# ── Trained Model Files (large binaries) ───────────────
+models/*.pkl
+
+# ── Database (contains user data) ──────────────────────
+instance/
+*.db
+
+# ── Dataset CSV (publicly available on Kaggle) ─────────
+data/*.csv
+
+# ── Python cache ───────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── VS Code ────────────────────────────────────────────
+.vscode/
+
+# ── OS files ───────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Jupyter ────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── Distribution / packaging ───────────────────────────
+dist/
+build/
+*.egg-info/
+>>>>>>> Stashed changes
