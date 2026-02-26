@@ -5,13 +5,18 @@ from flask_login import (
     login_required, current_user
 )
 from werkzeug.security import generate_password_hash, check_password_hash
+from dotenv import load_dotenv
 from datetime import datetime
 import numpy as np
 import joblib
 import os
+import io
+import tensorflow as tf
+
+load_dotenv()  # loads .env into environment variables
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'agromate-secret-key-2026'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-dev-key-change-me')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///agromate.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -30,9 +35,22 @@ crop_model         = _load_model("crop_model.pkl")
 crop_label_encoder = _load_model("crop_label_encoder.pkl")
 
 if crop_model:
-    print("[AgroMate] ✓ Crop model loaded successfully.")
+    print("[AgroMate] OK  Crop model loaded successfully.")
 else:
-    print("[AgroMate] ⚠ Crop model not found — run train_crop_model.py first.")
+    print("[AgroMate] WARN Crop model not found -- run train_crop_model.py first.")
+
+# Load disease CNN model
+_disease_model_path = os.path.join(_MODELS_DIR, "disease_model.keras")
+_disease_names_path = os.path.join(_MODELS_DIR, "disease_class_names.pkl")
+
+if os.path.exists(_disease_model_path):
+    disease_model = tf.keras.models.load_model(_disease_model_path)
+    disease_class_names = joblib.load(_disease_names_path)
+    print(f"[AgroMate] OK  Disease model loaded -- {len(disease_class_names)} classes.")
+else:
+    disease_model = None
+    disease_class_names = None
+    print("[AgroMate] WARN Disease model not found -- run train_disease_model.py first.")
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
@@ -118,9 +136,29 @@ def dummy_fertilizer_predict(temperature, humidity, moisture, soil_type,
     return FERTILIZER_LABELS[idx]
 
 
-def dummy_disease_predict(image_file):
-    """Placeholder – swap with CNN model inference"""
-    return DISEASE_LABELS[1], 87.4          # (disease_name, confidence %)
+def _format_disease_name(raw):
+    """Convert folder names like Tomato__Early_blight → Tomato: Early Blight"""
+    name = raw.replace("__", ": ").replace("_", " ")
+    return name.title()
+
+
+def real_disease_predict(image_bytes):
+    """Run CNN inference on uploaded leaf image bytes."""
+    if disease_model is None or disease_class_names is None:
+        raise RuntimeError("Disease model not loaded. Run train_disease_model.py first.")
+    img = tf.keras.utils.load_img(io.BytesIO(image_bytes), target_size=(224, 224))
+    arr = tf.keras.utils.img_to_array(img) / 255.0
+    arr = np.expand_dims(arr, axis=0)
+    preds = disease_model.predict(arr, verbose=0)[0]
+    top_idx       = int(np.argmax(preds))
+    disease_name  = _format_disease_name(disease_class_names[top_idx])
+    confidence    = round(float(preds[top_idx]) * 100, 1)
+    top3_idx = np.argsort(preds)[::-1][:3]
+    top3 = [
+        (_format_disease_name(disease_class_names[i]), round(float(preds[i]) * 100, 1))
+        for i in top3_idx
+    ]
+    return disease_name, confidence, top3
 
 
 # ─────────────────────────────────────────────
@@ -294,7 +332,6 @@ def fertilizer_recommendation():
 @login_required
 def disease_detection():
     result = None
-    confidence = None
     error = None
     if request.method == "POST":
         try:
@@ -305,13 +342,15 @@ def disease_detection():
                 if file.filename == "":
                     error = "No file selected."
                 else:
-                    result, confidence = dummy_disease_predict(file)
+                    image_bytes = file.read()
+                    disease_name, confidence, top3 = real_disease_predict(image_bytes)
+                    result = {"disease": disease_name, "confidence": confidence, "top3": top3}
                     current_user.predictions += 1
                     db.session.commit()
         except Exception as e:
             error = str(e)
     return render_template("disease_detection.html",
-                           result=result, confidence=confidence, error=error)
+                           result=result, error=error)
 
 
 @app.route("/weather-insights")
@@ -335,6 +374,88 @@ def weather_insights():
         ]
     }
     return render_template("weather_insights.html", weather=weather_data)
+
+
+# ── Chatbot (Groq – llama-3.3-70b-versatile) ──
+
+from flask import jsonify
+from groq import Groq
+
+# ── !! Paste your Groq API key below !! ─────────────────────────
+#   Get it free at: https://console.groq.com → API Keys
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+# ────────────────────────────────────────────────────────────────
+
+GROQ_MODEL = "llama-3.3-70b-versatile"
+
+# System prompt — gives the LLM its identity and scope
+_SYSTEM_PROMPT = """You are AgroBot 🌿, a friendly and knowledgeable AI agriculture assistant for AgroMate — a smart farming platform based in India.
+
+Your role:
+- Answer questions about crops, soil health, fertilizers, plant diseases, irrigation, pest control, weather-smart farming, organic farming, and government agricultural schemes.
+- When relevant, mention AgroMate's built-in tools: Crop Prediction, Fertilizer Recommendation, Disease Detection (upload a leaf photo), and Weather Insights.
+- Give practical, actionable advice suited for Indian farmers.
+- Be concise but helpful. Use bullet points and emojis where appropriate to keep responses readable.
+- If a question is completely unrelated to agriculture or farming, politely redirect the user back to agriculture topics.
+- Always respond in the same language the user writes in (English or Hindi).
+- Never make up scientific facts. If unsure, say so and suggest consulting a local agronomist or Krishi Vigyan Kendra (KVK).
+"""
+
+# Per-session conversation history (in-memory, resets on server restart)
+# Key: session_id (we use a simple per-request approach — stateless is fine for MVP)
+_chat_histories: dict = {}
+
+
+def _get_groq_reply(message: str, history: list) -> str:
+    """Send message + history to Groq and return the assistant reply."""
+    client = Groq(api_key=GROQ_API_KEY)
+
+    messages = [{"role": "system", "content": _SYSTEM_PROMPT}]
+    messages.extend(history)
+    messages.append({"role": "user", "content": message})
+
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
+        messages=messages,
+        temperature=0.7,
+        max_tokens=512,
+    )
+    return response.choices[0].message.content.strip()
+
+
+@app.route("/chatbot", methods=["POST"])
+def chatbot():
+    data       = request.get_json(silent=True) or {}
+    message    = data.get("message", "").strip()
+    session_id = data.get("session_id", "default")
+
+    if not message:
+        return jsonify({"reply": "Please type a message! 🌱"})
+
+    if not GROQ_API_KEY:
+        return jsonify({"reply": "⚠️ AgroBot is not configured yet. Please add your Groq API key in app.py to enable AI chat."})
+
+    # Maintain per-session history (last 10 exchanges = 20 messages)
+    if session_id not in _chat_histories:
+        _chat_histories[session_id] = []
+    history = _chat_histories[session_id]
+
+    try:
+        reply = _get_groq_reply(message, history)
+        # Append to history
+        history.append({"role": "user",      "content": message})
+        history.append({"role": "assistant", "content": reply})
+        # Keep only last 20 messages to stay within token limits
+        _chat_histories[session_id] = history[-20:]
+        return jsonify({"reply": reply})
+    except Exception as e:
+        error_msg = str(e)
+        if "invalid_api_key" in error_msg.lower() or "authentication" in error_msg.lower():
+            return jsonify({"reply": "⚠️ Invalid Groq API key. Please check the key in app.py."})
+        if "rate_limit" in error_msg.lower():
+            return jsonify({"reply": "⏳ Too many requests. Please wait a moment and try again!"})
+        return jsonify({"reply": f"⚠️ Sorry, something went wrong. Please try again. ({error_msg[:80]})"})
+
 
 
 # ─────────────────────────────────────────────

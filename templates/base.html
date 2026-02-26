@@ -235,5 +235,59 @@
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
   {% block extra_scripts %}{% endblock %}
+
+  <!-- ==================== AGROBOT CHATBOT ==================== -->
+
+  <!-- FAB Launcher -->
+  <button id="agrobot-fab" aria-label="Open AgroBot chat" title="Chat with AgroBot 🌿">
+    <span id="agrobot-badge">1</span>
+    <i class="bi bi-chat-dots-fill fs-4 fab-icon-open"></i>
+    <i class="bi bi-x-lg fs-5 fab-icon-close"></i>
+  </button>
+
+  <!-- Chat Window -->
+  <div id="agrobot-window" role="dialog" aria-label="AgroBot agriculture assistant">
+
+    <!-- Header -->
+    <div class="agrobot-header">
+      <div class="agrobot-avatar">🌿</div>
+      <div class="agrobot-header-info">
+        <h6>AgroBot</h6>
+        <small><span class="agrobot-status-dot"></span>Online · Agriculture Assistant</small>
+      </div>
+      <button class="agrobot-close-btn" id="agrobot-close" aria-label="Close chat">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <!-- Quick-topic chips -->
+    <div class="agrobot-chips" id="agrobot-chips">
+      <button class="chip" data-msg="What crops should I grow?">🌾 Crops</button>
+      <button class="chip" data-msg="Give me fertilizer advice">💧 Fertilizer</button>
+      <button class="chip" data-msg="How to detect plant disease?">🍂 Disease</button>
+      <button class="chip" data-msg="Irrigation tips for farming">💦 Irrigation</button>
+      <button class="chip" data-msg="How to control pests naturally?">🐛 Pests</button>
+      <button class="chip" data-msg="What is AgroMate?">ℹ️ About</button>
+    </div>
+
+    <!-- Messages -->
+    <div class="agrobot-messages" id="agrobot-messages"></div>
+
+    <!-- Input bar -->
+    <div class="agrobot-input-bar">
+      <textarea id="agrobot-input"
+                placeholder="Ask about crops, diseases, soil…"
+                rows="1"
+                aria-label="Type your agriculture question"></textarea>
+      <button id="agrobot-send" aria-label="Send message">
+        <i class="bi bi-send-fill"></i>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Chatbot JS loaded after elements exist in DOM -->
+  <script src="{{ url_for('static', filename='js/chatbot.js') }}"></script>
+
 </body>
 </html>

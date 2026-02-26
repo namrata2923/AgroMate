@@ -84,21 +84,38 @@
             <div class="result-icon disease-icon"><i class="bi bi-patch-check-fill"></i></div>
             <div class="w-100">
               <p class="result-label">Detected Condition</p>
-              <h3 class="result-value {% if result == 'Healthy' %}text-success{% else %}text-danger{% endif %}">
-                {{ result }}
+              <h3 class="result-value {% if 'Healthy' in result.disease %}text-success{% else %}text-danger{% endif %}">
+                {{ result.disease }}
               </h3>
-              {% if confidence %}
-              <div class="mt-2">
+
+              <!-- Confidence bar -->
+              <div class="mt-2 mb-3">
                 <div class="d-flex justify-content-between small mb-1">
-                  <span>Model Confidence</span>
-                  <strong>{{ confidence }}%</strong>
+                  <span class="text-muted">Model Confidence</span>
+                  <strong class="{% if 'Healthy' in result.disease %}text-success{% else %}text-danger{% endif %}">{{ result.confidence }}%</strong>
                 </div>
                 <div class="progress" style="height:8px;">
-                  <div class="progress-bar bg-success" style="width:{{ confidence }}%"></div>
+                  <div class="progress-bar {% if 'Healthy' in result.disease %}bg-success{% else %}bg-danger{% endif %}"
+                       style="width:{{ result.confidence }}%"></div>
+                </div>
+              </div>
+
+              <!-- Top 3 alternatives -->
+              {% if result.top3 and result.top3|length > 1 %}
+              <div class="mt-2">
+                <p class="small text-muted mb-2"><i class="bi bi-bar-chart-fill me-1"></i><strong>Top Alternatives</strong></p>
+                <div class="d-flex flex-wrap gap-2">
+                  {% for name, prob in result.top3[1:] %}
+                  <span class="badge rounded-pill px-3 py-2"
+                        style="background:#fce4ec; color:#b71c1c; font-size:0.8rem;">
+                    {{ name }} &mdash; {{ prob }}%
+                  </span>
+                  {% endfor %}
                 </div>
               </div>
               {% endif %}
-              {% if result != 'Healthy' %}
+
+              {% if 'Healthy' not in result.disease %}
               <div class="alert alert-warning mt-3 small">
                 <i class="bi bi-exclamation-triangle-fill me-2"></i>
                 Please consult a local agronomist for treatment advice specific to your region.
@@ -130,10 +147,26 @@
         </div>
 
         <div class="info-card mb-4" data-aos="fade-up" data-aos-delay="200">
-          <h5 class="info-card-title"><i class="bi bi-bug-fill me-2 text-disease"></i>Detectable Diseases</h5>
+          <h5 class="info-card-title"><i class="bi bi-bug-fill me-2 text-disease"></i>Detectable Conditions</h5>
           <div class="d-flex flex-wrap gap-2 mt-2">
-            {% for d in ["Apple Scab","Black Rot","Cedar Apple Rust","Bacterial Spot","Early Blight","Late Blight","Leaf Mold","Septoria Leaf Spot","Spider Mites","Target Spot","Yellow Leaf Curl","Mosaic Virus","Healthy"] %}
-            <span class="disease-chip {% if d == 'Healthy' %}chip-healthy{% endif %}">{{ d }}</span>
+            {% for d in [
+              ("Pepper Bell: Bacterial Spot", false),
+              ("Pepper Bell: Healthy", true),
+              ("Potato: Early Blight", false),
+              ("Potato: Late Blight", false),
+              ("Potato: Healthy", true),
+              ("Tomato: Bacterial Spot", false),
+              ("Tomato: Early Blight", false),
+              ("Tomato: Late Blight", false),
+              ("Tomato: Leaf Mold", false),
+              ("Tomato: Septoria Leaf Spot", false),
+              ("Tomato: Spider Mites", false),
+              ("Tomato: Target Spot", false),
+              ("Tomato: Mosaic Virus", false),
+              ("Tomato: Yellow Leaf Curl", false),
+              ("Tomato: Healthy", true)
+            ] %}
+            <span class="disease-chip {% if d[1] %}chip-healthy{% endif %}">{{ d[0] }}</span>
             {% endfor %}
           </div>
         </div>
@@ -141,9 +174,9 @@
         <div class="info-card" data-aos="fade-up" data-aos-delay="300">
           <h5 class="info-card-title"><i class="bi bi-cpu-fill me-2 text-disease"></i>About the Model</h5>
           <p class="text-muted small">
-            Our Convolutional Neural Network (CNN) is trained on the
-            <strong>PlantVillage dataset</strong> with 54,000+ leaf images across 
-            14 crop species. Validation accuracy: <strong>96.4%</strong>.
+            Our CNN uses <strong>MobileNetV2 Transfer Learning</strong> trained on the
+            <strong>PlantVillage dataset</strong> — 15 conditions across Pepper, Potato
+            and Tomato plants. Covers both healthy and diseased leaf classes.
           </p>
         </div>
       </div>
