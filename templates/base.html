@@ -73,7 +73,7 @@
                href="{{ url_for('index') }}">Home</a>
           </li>
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle {% if request.endpoint in ['crop_prediction','fertilizer_recommendation','disease_detection','weather_insights'] %}active{% endif %}"
+            <a class="nav-link dropdown-toggle {% if request.endpoint in ['crop_prediction','fertilizer_recommendation','disease_detection','weather_insights','market_prices'] %}active{% endif %}"
                href="#" data-bs-toggle="dropdown">Services</a>
             <ul class="dropdown-menu dropdown-menu-end site-dropdown">
               <li>
@@ -94,6 +94,11 @@
               <li>
                 <a class="dropdown-item" href="{{ url_for('weather_insights') }}">
                   <i class="bi bi-cloud-sun-fill me-2 text-green"></i>Weather Insights
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('market_prices') }}">
+                  <i class="bi bi-shop me-2 text-green"></i>Market Prices
                 </a>
               </li>
             </ul>
@@ -193,6 +198,7 @@
               <li><a href="{{ url_for('fertilizer_recommendation') }}">Fertilizer Advisor</a></li>
               <li><a href="{{ url_for('disease_detection') }}">Disease Detection</a></li>
               <li><a href="{{ url_for('weather_insights') }}">Weather Insights</a></li>
+              <li><a href="{{ url_for('market_prices') }}">Market Prices</a></li>
             </ul>
           </div>
 

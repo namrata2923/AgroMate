@@ -478,6 +478,19 @@ def market_prices():
             except Exception as e:
                 error = f"Could not fetch market data: {str(e)}"
 
+    # CSV export
+    if records and request.args.get("export") == "csv":
+        import csv, io
+        si = io.StringIO()
+        writer = csv.DictWriter(si, fieldnames=["state","district","market","commodity","variety","arrival_date","min_price","max_price","modal_price"])
+        writer.writeheader()
+        for r in records:
+            writer.writerow({k: r.get(k, "") for k in writer.fieldnames})
+        output = si.getvalue()
+        from flask import Response
+        return Response(output, mimetype="text/csv",
+                        headers={"Content-Disposition": f"attachment;filename=market_prices_{commodity}.csv"})
+
     return render_template(
         "market_prices.html",
         records=records,
