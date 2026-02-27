@@ -376,6 +376,124 @@ def weather_insights():
     return render_template("weather_insights.html", weather=weather_data)
 
 
+# ── Crop Market Prices ────────────────────────
+
+import requests as http_requests
+
+DATA_GOV_API_KEY = os.environ.get('DATA_GOV_API_KEY', '')
+
+# data.gov.in resource ID for daily mandi prices
+_MANDI_RESOURCE = "9ef84268-d588-465a-a308-a864a43d0070"
+
+# Commodity choices shown in the UI
+MARKET_COMMODITIES = [
+    "Tomato", "Potato", "Onion", "Rice", "Wheat", "Maize",
+    "Soyabean", "Cotton", "Sugarcane", "Groundnut", "Mustard",
+    "Brinjal", "Cabbage", "Cauliflower", "Garlic", "Ginger",
+    "Green Chilli", "Banana", "Mango", "Grapes"
+]
+
+
+MARKET_SORT_FIELDS = [
+    ("market",        "Market"),
+    ("state",         "State"),
+    ("district",      "District"),
+    ("commodity",     "Commodity"),
+    ("variety",       "Variety"),
+    ("arrival_date",  "Arrival Date"),
+    ("min_price",     "Min Price"),
+    ("max_price",     "Max Price"),
+    ("modal_price",   "Modal Price"),
+]
+
+@app.route("/market-prices", methods=["GET", "POST"])
+@login_required
+def market_prices():
+    records    = []
+    error      = None
+    commodity  = "Tomato"
+    state      = ""
+    district   = ""
+    date_from  = ""
+    date_to    = ""
+    sort_by    = "market"
+    sort_order = "asc"
+
+    if request.method == "POST" or request.args.get("commodity"):
+        commodity  = (request.form.get("commodity")   or request.args.get("commodity", "Tomato")).strip()
+        state      = (request.form.get("state", "")   or request.args.get("state", "")).strip()
+        district   = (request.form.get("district", "") or request.args.get("district", "")).strip()
+        date_from  = (request.form.get("date_from", "") or request.args.get("date_from", "")).strip()
+        date_to    = (request.form.get("date_to", "")   or request.args.get("date_to", "")).strip()
+        sort_by    = (request.form.get("sort_by", "market") or "market").strip()
+        sort_order = (request.form.get("sort_order", "asc") or "asc").strip()
+
+        if not DATA_GOV_API_KEY:
+            error = "DATA_GOV_API_KEY is not configured. Add it to your .env file."
+        else:
+            try:
+                # HTML date inputs give yyyy-mm-dd; API expects dd/mm/yyyy
+                def fmt_date(d):
+                    try:
+                        from datetime import datetime
+                        return datetime.strptime(d, "%Y-%m-%d").strftime("%d/%m/%Y")
+                    except Exception:
+                        return d
+
+                params = {
+                    "api-key":            DATA_GOV_API_KEY,
+                    "format":             "json",
+                    "limit":              100,
+                    "filters[commodity]": commodity,
+                }
+                if state:
+                    params["filters[state]"] = state
+                if district:
+                    params["filters[district]"] = district
+                if date_from and date_to:
+                    params["filters[arrival_date][from]"] = fmt_date(date_from)
+                    params["filters[arrival_date][to]"]   = fmt_date(date_to)
+                elif date_from:
+                    params["filters[arrival_date][from]"] = fmt_date(date_from)
+                elif date_to:
+                    params["filters[arrival_date][to]"]   = fmt_date(date_to)
+                if sort_by:
+                    params["sort[]"]     = sort_by
+                    params["sort_order"] = sort_order
+
+                resp = http_requests.get(
+                    f"https://api.data.gov.in/resource/{_MANDI_RESOURCE}",
+                    params=params,
+                    timeout=10
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                records = data.get("records", [])
+                if not records:
+                    location = f" in {district}" if district else (f" in {state}" if state else "")
+                    date_hint = " Today's data may not be submitted yet — try yesterday's date." if date_from else ""
+                    error = f"No market data found for '{commodity}'{location}.{date_hint} Try adjusting your filters."
+            except http_requests.exceptions.Timeout:
+                error = "Request timed out. The data.gov.in API is slow right now — please try again."
+            except Exception as e:
+                error = f"Could not fetch market data: {str(e)}"
+
+    return render_template(
+        "market_prices.html",
+        records=records,
+        commodity=commodity,
+        state=state,
+        district=district,
+        date_from=date_from,
+        date_to=date_to,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        commodities=MARKET_COMMODITIES,
+        sort_fields=MARKET_SORT_FIELDS,
+        error=error
+    )
+
+
 # ── Chatbot (Groq – llama-3.3-70b-versatile) ──
 
 from flask import jsonify

@@ -23,6 +23,9 @@ instance/
 *.db
 *.sqlite3
 
+# ── Dataset (large image files) ──────────────
+data/
+
 # ── Models (large binary files) ───────────────
 models/*.keras
 models/*.pkl
