@@ -11,7 +11,9 @@ import numpy as np
 import joblib
 import os
 import io
-import tensorflow as tf
+import torch
+from PIL import Image
+from transformers import DeiTForImageClassification, DeiTImageProcessor, DeiTConfig
 
 load_dotenv()  # loads .env into environment variables
 
@@ -39,18 +41,31 @@ if crop_model:
 else:
     print("[AgroMate] WARN Crop model not found -- run train_crop_model.py first.")
 
-# Load disease CNN model
-_disease_model_path = os.path.join(_MODELS_DIR, "disease_model.keras")
-_disease_names_path = os.path.join(_MODELS_DIR, "disease_class_names.pkl")
+# Load disease DeiT model (PyTorch)
+_disease_model_path = os.path.join(_MODELS_DIR, "best_deit_model1.pth")
+_disease_names_path = os.path.join(_MODELS_DIR, "deit_class_names.pkl")
+
+_NUM_CLASSES = 38
+_device = torch.device("cpu")
 
 if os.path.exists(_disease_model_path):
-    disease_model = tf.keras.models.load_model(_disease_model_path)
     disease_class_names = joblib.load(_disease_names_path)
-    print(f"[AgroMate] OK  Disease model loaded -- {len(disease_class_names)} classes.")
+    # Build model from config only (no pretrained weight download)
+    _deit_config = DeiTConfig.from_pretrained("facebook/deit-tiny-patch16-224")
+    _deit_config.num_labels = _NUM_CLASSES
+    disease_model = DeiTForImageClassification(_deit_config)
+    disease_model.load_state_dict(
+        torch.load(_disease_model_path, map_location=_device)
+    )
+    disease_model.to(_device)
+    disease_model.eval()
+    _disease_processor = DeiTImageProcessor.from_pretrained("facebook/deit-tiny-patch16-224")
+    print(f"[AgroMate] OK  DeiT disease model loaded -- {len(disease_class_names)} classes.")
 else:
     disease_model = None
     disease_class_names = None
-    print("[AgroMate] WARN Disease model not found -- run train_disease_model.py first.")
+    _disease_processor = None
+    print("[AgroMate] WARN Disease model not found -- place best_deit_model1.pth in models/ folder.")
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
@@ -103,10 +118,26 @@ FERTILIZER_LABELS = [
 ]
 
 DISEASE_LABELS = [
-    "Healthy", "Apple Scab", "Black Rot", "Cedar Apple Rust",
-    "Bacterial Spot", "Early Blight", "Late Blight",
-    "Leaf Mold", "Septoria Leaf Spot", "Spider Mites",
-    "Target Spot", "Tomato Yellow Leaf Curl Virus", "Tomato Mosaic Virus"
+    "Apple: Apple Scab", "Apple: Black Rot", "Apple: Cedar Apple Rust", "Apple: Healthy",
+    "Blueberry: Healthy",
+    "Cherry: Powdery Mildew", "Cherry: Healthy",
+    "Corn: Cercospora Leaf Spot / Gray Leaf Spot", "Corn: Common Rust",
+    "Corn: Northern Leaf Blight", "Corn: Healthy",
+    "Grape: Black Rot", "Grape: Esca (Black Measles)",
+    "Grape: Leaf Blight (Isariopsis Leaf Spot)", "Grape: Healthy",
+    "Orange: Haunglongbing (Citrus Greening)",
+    "Peach: Bacterial Spot", "Peach: Healthy",
+    "Pepper Bell: Bacterial Spot", "Pepper Bell: Healthy",
+    "Potato: Early Blight", "Potato: Late Blight", "Potato: Healthy",
+    "Raspberry: Healthy",
+    "Soybean: Healthy",
+    "Squash: Powdery Mildew",
+    "Strawberry: Leaf Scorch", "Strawberry: Healthy",
+    "Tomato: Bacterial Spot", "Tomato: Early Blight", "Tomato: Late Blight",
+    "Tomato: Leaf Mold", "Tomato: Septoria Leaf Spot",
+    "Tomato: Spider Mites (Two-Spotted Spider Mite)",
+    "Tomato: Target Spot", "Tomato: Yellow Leaf Curl Virus",
+    "Tomato: Mosaic Virus", "Tomato: Healthy"
 ]
 
 
@@ -143,19 +174,20 @@ def _format_disease_name(raw):
 
 
 def real_disease_predict(image_bytes):
-    """Run CNN inference on uploaded leaf image bytes."""
+    """Run DeiT inference on uploaded leaf image bytes."""
     if disease_model is None or disease_class_names is None:
-        raise RuntimeError("Disease model not loaded. Run train_disease_model.py first.")
-    img = tf.keras.utils.load_img(io.BytesIO(image_bytes), target_size=(224, 224))
-    arr = tf.keras.utils.img_to_array(img) / 255.0
-    arr = np.expand_dims(arr, axis=0)
-    preds = disease_model.predict(arr, verbose=0)[0]
-    top_idx       = int(np.argmax(preds))
+        raise RuntimeError("Disease model not loaded. Place best_deit_model1.pth in models/ folder.")
+    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    inputs = _disease_processor(images=img, return_tensors="pt").to(_device)
+    with torch.no_grad():
+        logits = disease_model(**inputs).logits          # shape: (1, 38)
+    probs     = torch.softmax(logits, dim=1)[0].cpu().numpy()
+    top_idx       = int(np.argmax(probs))
     disease_name  = _format_disease_name(disease_class_names[top_idx])
-    confidence    = round(float(preds[top_idx]) * 100, 1)
-    top3_idx = np.argsort(preds)[::-1][:3]
+    confidence    = round(float(probs[top_idx]) * 100, 1)
+    top3_idx = np.argsort(probs)[::-1][:3]
     top3 = [
-        (_format_disease_name(disease_class_names[i]), round(float(preds[i]) * 100, 1))
+        (_format_disease_name(disease_class_names[i]), round(float(probs[i]) * 100, 1))
         for i in top3_idx
     ]
     return disease_name, confidence, top3
