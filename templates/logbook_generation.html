@@ -1,0 +1,710 @@
+{% extends "base.html" %}
+{% block title %}Farm Logbook Generator – AgroMate{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── Logbook content styles ── */
+  .logbook-content { line-height: 1.7; }
+  .logbook-content h2 {
+    color: #1b4332;
+    font-size: 1.15rem;
+    font-weight: 700;
+    border-left: 4px solid #52b788;
+    padding: 6px 0 6px 12px;
+    margin: 1.8rem 0 0.8rem;
+    background: #f0faf4;
+    border-radius: 0 6px 6px 0;
+  }
+  .logbook-content h3 {
+    color: #2d6a4f;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-top: 1.2rem;
+  }
+  .logbook-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.84rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .logbook-content thead th {
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.8rem;
+    letter-spacing: .02em;
+    color: #fff;
+  }
+  .logbook-content td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e8f5e9;
+    vertical-align: top;
+  }
+  .logbook-content tr:last-child td { border-bottom: none; }
+  .logbook-content tr:nth-child(even) td { background: #f8fff9; }
+  .logbook-content ul, .logbook-content ol { padding-left: 1.4rem; margin: .5rem 0; }
+  .logbook-content li { margin-bottom: 4px; font-size: 0.9rem; }
+  .logbook-content p  { font-size: 0.9rem; margin-bottom: .6rem; }
+  .logbook-content strong { color: #1b4332; }
+  .logbook-content blockquote {
+    background: #f0fff4;
+    border-left: 4px solid #40916c;
+    padding: 10px 16px;
+    margin: 1rem 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.88rem;
+    color: #2d6a4f;
+  }
+  /* Tab button colours */
+  #pesticide-tab.active  { background: #c1121f !important; border-color: #c1121f !important; }
+  #fertilizer-tab.active { background: #2d6a4f !important; border-color: #2d6a4f !important; }
+  #irrigation-tab.active { background: #0077b6 !important; border-color: #0077b6 !important; }
+  #pesticide-tab, #fertilizer-tab, #irrigation-tab {
+    color: #444; border: 2px solid #ddd; background: #fff;
+    border-radius: 50px !important;
+    transition: all .25s;
+  }
+  #pesticide-tab:hover  { border-color: #c1121f; color: #c1121f; }
+  #fertilizer-tab:hover { border-color: #2d6a4f; color: #2d6a4f; }
+  #irrigation-tab:hover { border-color: #0077b6; color: #0077b6; }
+
+  /* data source cards */
+  .datasource-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.07);
+    height: 100%;
+  }
+  .datasource-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 4px;
+  }
+
+  /* Success banner */
+  .success-banner {
+    background: linear-gradient(135deg, #1b4332, #40916c);
+    color: #fff;
+    border-radius: 14px;
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 0;
+  }
+  .success-banner .icon-circle {
+    width: 52px; height: 52px; min-width: 52px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem;
+  }
+
+  /* Loading overlay */
+  .loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(15, 40, 25, 0.85);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .loading-steps .step-badge {
+    font-size: 0.78rem;
+    padding: 5px 14px;
+    border-radius: 20px;
+    transition: background .4s;
+  }
+  .step-pending  { background: #444; color: #aaa; }
+  .step-done     { background: #52b788; color: #fff; }
+  .step-active   { background: #ffd166; color: #333; }
+
+  /* GPS status styles */
+  .gps-status {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+  .gps-status.pending  { background:#fff8e1; color:#856404; border:1px solid #ffe082; }
+  .gps-status.success  { background:#e8f5e9; color:#1b5e20; border:1px solid #a5d6a7; }
+  .gps-status.denied   { background:#fce4ec; color:#b71c1c; border:1px solid #ef9a9a; }
+  .gps-pulse { animation: gpsPulse 1.2s infinite; }
+  @keyframes gpsPulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* Farmer-friendly content overrides */
+  .logbook-content h2 { font-size: 1.1rem; }
+  .logbook-content p, .logbook-content li { font-size: 0.92rem; }
+  /* Bold week headers */
+  .logbook-content strong { color: #1b4332; }
+
+  /* Print styles */
+  @media print {
+    .no-print, nav, footer, .site-footer, .topbar,
+    .loading-overlay, .flash-container,
+    #agrobot-fab, #agrobot-window,
+    .back-to-top, .page-hero, .form-section,
+    #logbookTabs, .print-btn-group { display: none !important; }
+
+    .tab-pane { display: block !important; opacity: 1 !important; }
+    .logbook-content table { page-break-inside: avoid; font-size: 8.5pt; }
+    .logbook-content h2 { page-break-after: avoid; }
+    body { font-size: 10.5pt; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Loading overlay ── -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="text-center text-white px-4" style="max-width:480px;">
+    <div class="spinner-border text-success mb-3" style="width:3.5rem;height:3.5rem;border-width:4px;"></div>
+    <h4 class="fw-bold mb-1">Generating Your Logbooks…</h4>
+    <p class="text-white-50 mb-4">Fetching live soil &amp; weather data, then asking the AI to build your plans. This takes <strong class="text-white">30–60 seconds</strong>.</p>
+    <div class="d-flex flex-wrap justify-content-center gap-2 loading-steps">
+      <span class="step-badge step-done"    id="lsStep1">✓ Form submitted</span>
+      <span class="step-badge step-active"  id="lsStep2">⏳ Getting GPS location</span>
+      <span class="step-badge step-pending" id="lsStep3">Soil data (ISRIC)</span>
+      <span class="step-badge step-pending" id="lsStep4">Weather (Open-Meteo)</span>
+      <span class="step-badge step-pending" id="lsStep5">AI generating logbooks</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Page Hero ── -->
+<section class="page-hero">
+  <div class="page-hero-overlay"></div>
+  <div class="container text-center">
+    <span class="section-tag-light" data-aos="fade-up">AI-POWERED TOOL — 06</span>
+    <h1 class="page-hero-title" data-aos="fade-up" data-aos-delay="100">Farm Logbook Generator</h1>
+    <p class="page-hero-subtitle" data-aos="fade-up" data-aos-delay="200">
+      AI-generated pesticide, fertilizer &amp; irrigation logbooks — powered by live soil and weather data.
+    </p>
+    <nav aria-label="breadcrumb" data-aos="fade-up" data-aos-delay="300">
+      <ol class="breadcrumb justify-content-center">
+        <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+        <li class="breadcrumb-item active">Logbook Generator</li>
+      </ol>
+    </nav>
+  </div>
+</section>
+
+<!-- ── Form Section ── -->
+<section class="section-padding form-section no-print">
+  <div class="container">
+    <div class="row justify-content-center gy-5">
+
+      <!-- Form card -->
+      <div class="col-lg-8">
+        <div class="tool-card" data-aos="fade-up">
+          <div class="tool-card-header">
+            <div class="tool-icon" style="background:linear-gradient(135deg,#2d6a4f,#52b788);">
+              <i class="bi bi-journal-richtext"></i>
+            </div>
+            <div>
+              <h4 class="mb-0">Generate Farm Logbooks</h4>
+              <p class="text-muted small mb-0">
+                Enter your crop and location — we'll fetch live soil &amp; weather data and build three custom logbooks
+              </p>
+            </div>
+          </div>
+
+          {% if error %}
+          <div class="alert alert-danger mt-3 mb-0">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error }}
+          </div>
+          {% endif %}
+
+          <form method="POST" action="{{ url_for('logbook_generation') }}"
+                id="logbookForm" class="mt-4" novalidate>
+
+            <!-- Hidden GPS coordinates (filled by JS) -->
+            <input type="hidden" name="lat" id="hiddenLat" value="{{ form_data.get('lat', '') }}" />
+            <input type="hidden" name="lon" id="hiddenLon" value="{{ form_data.get('lon', '') }}" />
+
+            <!-- GPS Location Banner -->
+            <div id="gpsStatus" class="gps-status pending mb-3">
+              <i class="bi bi-crosshair2 fs-5 gps-pulse" id="gpsIcon"></i>
+              <div>
+                <div id="gpsText">Requesting your location… Please click <strong>Allow</strong> in the browser popup.</div>
+                <div id="gpsCoords" class="text-muted" style="font-size:0.78rem;font-weight:400;"></div>
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" id="retryGpsBtn"
+                      style="display:none;" onclick="requestGPS()">
+                <i class="bi bi-arrow-clockwise me-1"></i>Retry
+              </button>
+            </div>
+
+            <div class="row g-3">
+              <!-- Crop name -->
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">
+                  <i class="bi bi-seedling me-2 text-success"></i>Crop Name <span class="text-danger">*</span>
+                </label>
+                <input type="text" name="crop_name" class="form-control"
+                       placeholder="e.g. Tomato, Wheat, Rice"
+                       value="{{ form_data.get('crop_name', '') }}" required />
+              </div>
+
+              <!-- Acres -->
+              <div class="col-md-3">
+                <label class="form-label fw-semibold">
+                  <i class="bi bi-rulers me-2 text-primary"></i>Area (acres) <span class="text-danger">*</span>
+                </label>
+                <input type="number" name="acres" class="form-control"
+                       step="0.5" min="0.5" max="1000"
+                       placeholder="e.g. 5"
+                       value="{{ form_data.get('acres', '') }}" required />
+              </div>
+
+              <!-- Location (manual fallback) -->
+              <div class="col-md-3">
+                <label class="form-label fw-semibold">
+                  <i class="bi bi-geo-alt-fill me-2 text-danger"></i>Location
+                  <span class="text-muted fw-normal" style="font-size:.75rem;">(fallback)</span>
+                </label>
+                <input type="text" name="location" id="locationInput" class="form-control"
+                       placeholder="e.g. Pune, Maharashtra"
+                       value="{{ form_data.get('location', '') }}" />
+                <div class="form-text">Used only if GPS is blocked.</div>
+              </div>
+            </div>
+
+            <!-- How it works info -->
+            <div class="alert alert-info mt-4 mb-0 small">
+              <i class="bi bi-info-circle-fill me-2"></i>
+              <strong>How it works:</strong>
+              Your <strong>GPS coordinates</strong> are used to fetch precise soil data from
+              <a href="https://soilgrids.org" target="_blank" rel="noopener" class="alert-link">ISRIC SoilGrids</a>
+              and weather from
+              <a href="https://open-meteo.com" target="_blank" rel="noopener" class="alert-link">Open-Meteo</a>.
+              The AI (<strong>Groq LLaMA</strong>) then builds your three logbooks.
+              Generation takes <strong>30–60 seconds</strong> — please be patient.
+            </div>
+
+            <div class="mt-4">
+              <button type="submit" class="btn btn-green btn-lg px-5 fw-semibold" id="generateBtn">
+                <i class="bi bi-magic me-2"></i>Generate My Logbooks
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Side info -->
+      <div class="col-lg-4 d-none d-lg-block">
+        <div class="info-card mb-4" data-aos="fade-up" data-aos-delay="100">
+          <h5 class="fw-bold mb-3"><i class="bi bi-journal-check text-success me-2"></i>What You Get</h5>
+          <div class="d-flex align-items-start gap-3 mb-3">
+            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                 style="width:38px;height:38px;background:#ffe0e0;">
+              <i class="bi bi-shield-exclamation text-danger"></i>
+            </div>
+            <div>
+              <div class="fw-semibold small">Pesticide Usage Logbook</div>
+              <div class="text-muted" style="font-size:0.8rem;">Seasonal spray schedule, dosages, PHI, resistance management &amp; safety</div>
+            </div>
+          </div>
+          <div class="d-flex align-items-start gap-3 mb-3">
+            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                 style="width:38px;height:38px;background:#e0f5ea;">
+              <i class="bi bi-droplet-fill text-success"></i>
+            </div>
+            <div>
+              <div class="fw-semibold small">Fertilizer Recommendation Logbook</div>
+              <div class="text-muted" style="font-size:0.8rem;">NPK schedule, organic amendments, micronutrients &amp; cost estimates</div>
+            </div>
+          </div>
+          <div class="d-flex align-items-start gap-3">
+            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                 style="width:38px;height:38px;background:#dff0fc;">
+              <i class="bi bi-water text-primary"></i>
+            </div>
+            <div>
+              <div class="fw-semibold small">Irrigation Schedule Logbook</div>
+              <div class="text-muted" style="font-size:0.8rem;">Crop water needs, irrigation schedule, method comparison &amp; drip design</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-card" data-aos="fade-up" data-aos-delay="200">
+          <h5 class="fw-bold mb-3"><i class="bi bi-database-check text-info me-2"></i>Data Sources</h5>
+          <ul class="list-unstyled mb-0" style="font-size:0.85rem;">
+            <li class="mb-2">
+              <i class="bi bi-check-circle-fill text-success me-2"></i>
+              <strong>ISRIC SoilGrids v2.0</strong> — global 250m soil maps, free
+            </li>
+            <li class="mb-2">
+              <i class="bi bi-check-circle-fill text-success me-2"></i>
+              <strong>Open-Meteo</strong> — free weather API, no key needed
+            </li>
+            <li>
+              <i class="bi bi-check-circle-fill text-success me-2"></i>
+              <strong>Groq LLaMA 3.3 70B</strong> — AI analysis &amp; generation
+            </li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+{% if result %}
+
+<!-- ── Auto-scroll anchor ── -->
+<div id="logbook-results"></div>
+
+<!-- ── Data Sources Summary ── -->
+<section class="py-4 no-print" style="background:#f6faf7;border-top:1px solid #d8eedd;">
+  <div class="container">
+    <div class="row g-3 align-items-stretch">
+
+      <div class="col-md-4">
+        <div class="datasource-card">
+          <div class="datasource-label"><i class="bi bi-pin-map-fill text-danger me-1"></i>Farm Details</div>
+          <div class="fw-bold">{{ result.location }}</div>
+          <div class="text-muted small mt-1">
+            <span class="badge bg-success me-1">{{ result.crop }}</span>
+            <span class="badge bg-secondary">{{ result.acres }} acres</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="datasource-card">
+          <div class="datasource-label"><i class="bi bi-layers-fill text-warning me-1"></i>Soil Data — ISRIC SoilGrids (0–5 cm)</div>
+          <div class="small mt-1" style="white-space:pre-line;line-height:1.6;">{{ result.soil }}</div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="datasource-card">
+          <div class="datasource-label"><i class="bi bi-cloud-sun-fill text-info me-1"></i>Weather — Open-Meteo (Current + 7-Day)</div>
+          <div class="small mt-1" style="white-space:pre-line;line-height:1.6;">{{ result.weather }}</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ── Logbook Results ── -->
+<section class="section-padding" id="logbook-section">
+  <div class="container">
+
+    <!-- ✅ Success banner -->
+    <div class="success-banner mb-5 no-print" data-aos="fade-up">
+      <div class="icon-circle">✅</div>
+      <div>
+        <div class="fw-bold fs-5">Your Logbooks Are Ready!</div>
+        <div style="opacity:.85;font-size:.92rem;">
+          3 personalised plans generated for <strong>{{ result.crop }}</strong> — {{ result.acres }} acres — {{ result.location }}
+        </div>
+        <div class="mt-2 d-flex flex-wrap gap-2">
+          <a href="#pesticidePane" onclick="activateTab('pesticide-tab')" class="btn btn-sm btn-light fw-semibold">
+            <i class="bi bi-shield-exclamation me-1 text-danger"></i>Pesticide Plan
+          </a>
+          <a href="#fertilizerPane" onclick="activateTab('fertilizer-tab')" class="btn btn-sm btn-light fw-semibold">
+            <i class="bi bi-droplet-fill me-1 text-success"></i>Fertilizer Plan
+          </a>
+          <a href="#irrigationPane" onclick="activateTab('irrigation-tab')" class="btn btn-sm btn-light fw-semibold">
+            <i class="bi bi-water me-1 text-primary"></i>Irrigation Plan
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center mb-4 no-print" data-aos="fade-up">
+      <span class="section-tag">YOUR FARM LOGBOOKS</span>
+      <h2 class="section-title">Simple Weekly Farm Plans</h2>
+      <p class="section-subtitle">
+        Easy step-by-step plans for <strong>{{ result.crop }}</strong> on <strong>{{ result.acres }} acres</strong>
+        in <strong>{{ result.location }}</strong>
+      </p>
+    </div>
+
+    <!-- Tab navigation -->
+    <ul class="nav nav-pills justify-content-center mb-4 gap-2 no-print flex-wrap"
+        id="logbookTabs" role="tablist" data-aos="fade-up">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active fw-semibold px-4 py-2" id="pesticide-tab"
+                data-bs-toggle="pill" data-bs-target="#pesticidePane" type="button">
+          <i class="bi bi-shield-exclamation me-2"></i>Pesticide Usage
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link fw-semibold px-4 py-2" id="fertilizer-tab"
+                data-bs-toggle="pill" data-bs-target="#fertilizerPane" type="button">
+          <i class="bi bi-droplet-fill me-2"></i>Fertilizer Plan
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link fw-semibold px-4 py-2" id="irrigation-tab"
+                data-bs-toggle="pill" data-bs-target="#irrigationPane" type="button">
+          <i class="bi bi-water me-2"></i>Irrigation Schedule
+        </button>
+      </li>
+    </ul>
+
+    <!-- Tab content -->
+    <div class="tab-content" id="logbookTabContent" data-aos="fade-up" data-aos-delay="100">
+
+      <!-- ── Pesticide Tab ── -->
+      <div class="tab-pane fade show active" id="pesticidePane" role="tabpanel">
+        <div class="card shadow border-0 rounded-3 overflow-hidden">
+          <div class="card-header d-flex align-items-center justify-content-between py-3 no-print"
+               style="background:linear-gradient(135deg,#c1121f,#e63946);color:#fff;">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-shield-exclamation fs-5"></i>
+              <span class="fw-bold fs-6">Pesticide Usage Logbook</span>
+            </div>
+            <div class="print-btn-group d-flex gap-2">
+              <button onclick="printSingleLogbook('Pesticide Usage Logbook – {{ result.crop }} ({{ result.acres }} acres, {{ result.location }})', document.querySelector('#pesticidePane .logbook-content').innerHTML)"
+                      class="btn btn-sm btn-light fw-semibold">
+                <i class="bi bi-printer-fill me-1"></i>Print
+              </button>
+            </div>
+          </div>
+          <div class="card-body p-4 logbook-content" style="overflow-x:auto;">
+            <style>
+              #pesticidePane thead th { background: #c1121f; }
+              #pesticidePane tr:nth-child(even) td { background: #fff5f5; }
+            </style>
+            {{ result.pesticide | safe }}
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Fertilizer Tab ── -->
+      <div class="tab-pane fade" id="fertilizerPane" role="tabpanel">
+        <div class="card shadow border-0 rounded-3 overflow-hidden">
+          <div class="card-header d-flex align-items-center justify-content-between py-3 no-print"
+               style="background:linear-gradient(135deg,#2d6a4f,#52b788);color:#fff;">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-droplet-fill fs-5"></i>
+              <span class="fw-bold fs-6">Fertilizer Recommendation Logbook</span>
+            </div>
+            <div class="print-btn-group d-flex gap-2">
+              <button onclick="printSingleLogbook('Fertilizer Recommendation Logbook – {{ result.crop }} ({{ result.acres }} acres, {{ result.location }})', document.querySelector('#fertilizerPane .logbook-content').innerHTML)"
+                      class="btn btn-sm btn-light fw-semibold">
+                <i class="bi bi-printer-fill me-1"></i>Print
+              </button>
+            </div>
+          </div>
+          <div class="card-body p-4 logbook-content" style="overflow-x:auto;">
+            <style>
+              #fertilizerPane thead th { background: #2d6a4f; }
+              #fertilizerPane tr:nth-child(even) td { background: #f8fff9; }
+            </style>
+            {{ result.fertilizer | safe }}
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Irrigation Tab ── -->
+      <div class="tab-pane fade" id="irrigationPane" role="tabpanel">
+        <div class="card shadow border-0 rounded-3 overflow-hidden">
+          <div class="card-header d-flex align-items-center justify-content-between py-3 no-print"
+               style="background:linear-gradient(135deg,#0077b6,#00b4d8);color:#fff;">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-water fs-5"></i>
+              <span class="fw-bold fs-6">Water Irrigation Logbook</span>
+            </div>
+            <div class="print-btn-group d-flex gap-2">
+              <button onclick="printSingleLogbook('Water Irrigation Logbook – {{ result.crop }} ({{ result.acres }} acres, {{ result.location }})', document.querySelector('#irrigationPane .logbook-content').innerHTML)"
+                      class="btn btn-sm btn-light fw-semibold">
+                <i class="bi bi-printer-fill me-1"></i>Print
+              </button>
+            </div>
+          </div>
+          <div class="card-body p-4 logbook-content" style="overflow-x:auto;">
+            <style>
+              #irrigationPane thead th { background: #0077b6; }
+              #irrigationPane tr:nth-child(even) td { background: #f0f9ff; }
+            </style>
+            {{ result.irrigation | safe }}
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /tab-content -->
+
+    <!-- Bottom action buttons -->
+    <div class="text-center mt-5 no-print d-flex flex-wrap justify-content-center gap-3">
+      <button onclick="window.print()" class="btn btn-outline-dark px-5 fw-semibold">
+        <i class="bi bi-printer me-2"></i>Print All Logbooks
+      </button>
+      <a href="{{ url_for('logbook_generation') }}" class="btn btn-outline-success px-5 fw-semibold">
+        <i class="bi bi-arrow-clockwise me-2"></i>Generate New
+      </a>
+    </div>
+
+  </div>
+</section>
+{% endif %}
+
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  /* ── GPS Location ── */
+  function requestGPS() {
+    const statusBox = document.getElementById('gpsStatus');
+    const icon      = document.getElementById('gpsIcon');
+    const text      = document.getElementById('gpsText');
+    const coords    = document.getElementById('gpsCoords');
+    const retryBtn  = document.getElementById('retryGpsBtn');
+
+    if (!navigator.geolocation) {
+      statusBox.className = 'gps-status denied mb-3';
+      icon.className = 'bi bi-exclamation-triangle-fill fs-5';
+      text.textContent = 'GPS not supported in this browser. Enter location manually below.';
+      retryBtn.style.display = 'none';
+      return;
+    }
+
+    statusBox.className = 'gps-status pending mb-3';
+    icon.className = 'bi bi-crosshair2 fs-5 gps-pulse';
+    text.innerHTML = 'Requesting your location… Please click <strong>Allow</strong> in the browser popup.';
+    coords.textContent = '';
+    retryBtn.style.display = 'none';
+
+    navigator.geolocation.getCurrentPosition(
+      function (pos) {
+        const lat = pos.coords.latitude.toFixed(6);
+        const lon = pos.coords.longitude.toFixed(6);
+        document.getElementById('hiddenLat').value = lat;
+        document.getElementById('hiddenLon').value = lon;
+
+        statusBox.className = 'gps-status success mb-3';
+        icon.className = 'bi bi-geo-alt-fill fs-5';
+        text.innerHTML = '✅ Location detected successfully!';
+        coords.textContent = 'Lat: ' + lat + '  •  Lon: ' + lon;
+        retryBtn.style.display = 'none';
+      },
+      function (err) {
+        statusBox.className = 'gps-status denied mb-3';
+        icon.className = 'bi bi-geo-slash-fill fs-5';
+        if (err.code === 1) {
+          text.innerHTML = '❌ Location access denied. Please allow location in your browser settings, or <strong>enter your location manually</strong> in the field below.';
+        } else {
+          text.innerHTML = '❌ Could not get location. Please <strong>enter your location manually</strong> in the field below.';
+        }
+        coords.textContent = '';
+        retryBtn.style.display = 'inline-block';
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  }
+
+  // Auto-request GPS on page load
+  document.addEventListener('DOMContentLoaded', requestGPS);
+
+  /* ── Form submit: validate GPS or manual location is present ── */
+  document.getElementById('logbookForm').addEventListener('submit', function (e) {
+    const crop     = document.querySelector('[name="crop_name"]').value.trim();
+    const acres    = document.querySelector('[name="acres"]').value.trim();
+    const lat      = document.getElementById('hiddenLat').value.trim();
+    const location = document.getElementById('locationInput').value.trim();
+
+    if (!crop || !acres) return; // browser handles required
+
+    if (!lat && !location) {
+      e.preventDefault();
+      const sb = document.getElementById('gpsStatus');
+      sb.className = 'gps-status denied mb-3';
+      document.getElementById('gpsIcon').className = 'bi bi-exclamation-triangle-fill fs-5';
+      document.getElementById('gpsText').innerHTML =
+        '⚠️ Please allow GPS access <strong>OR</strong> type your location in the fallback field.';
+      document.getElementById('retryGpsBtn').style.display = 'inline-block';
+      return;
+    }
+
+    // Show loading overlay
+    const overlay = document.getElementById('loadingOverlay');
+    overlay.style.display = 'flex';
+
+    const steps  = ['lsStep2', 'lsStep3', 'lsStep4', 'lsStep5'];
+    const delays = [1500, 4000, 7000, 12000];
+    steps.forEach((id, i) => {
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        el.classList.remove('step-active', 'step-pending');
+        el.classList.add('step-done');
+        el.textContent = '✓ ' + el.textContent.replace(/^[⏳✓]\s*/, '');
+        const nextEl = document.getElementById(steps[i + 1]);
+        if (nextEl) {
+          nextEl.classList.remove('step-pending');
+          nextEl.classList.add('step-active');
+        }
+      }, delays[i]);
+    });
+  });
+
+  /* ── Auto-scroll to results & tab helpers ── */
+  {% if result %}
+  window.addEventListener('load', function () {
+    const el = document.getElementById('logbook-results');
+    if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+  });
+  {% endif %}
+
+  function activateTab(tabId) {
+    const tab = document.getElementById(tabId);
+    if (tab) new bootstrap.Tab(tab).show();
+  }
+
+  /* ── Print a single logbook in a clean pop-up ── */
+  function printSingleLogbook(title, htmlContent) {
+    const tableStyles = `
+      table { width:100%; border-collapse:collapse; margin:1rem 0; font-size:9pt; }
+      thead th { background:#2d6a4f; color:#fff; padding:7px 10px; text-align:left; font-size:8.5pt; }
+      td { padding:6px 10px; border-bottom:1px solid #ddd; vertical-align:top; }
+      tr:nth-child(even) td { background:#f9fffe; }
+    `;
+    const win = window.open('', '_blank', 'width=960,height=720');
+    win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${title}</title>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 24px 32px; font-size: 10.5pt; color: #222; }
+    h1 { font-size: 15pt; color: #1b4332; border-bottom: 2px solid #52b788; padding-bottom: 8px; margin-bottom: 20px; }
+    h2 { font-size: 12pt; color: #1b4332; background: #f0faf4; border-left: 4px solid #52b788;
+         padding: 5px 10px; margin: 1.5rem 0 0.6rem; }
+    h3 { font-size: 10.5pt; color: #2d6a4f; margin-top: 1rem; }
+    blockquote { background:#f0fff4; border-left:4px solid #40916c; padding:8px 14px; font-size:9.5pt; color:#2d6a4f; }
+    ${tableStyles}
+    ul, ol { padding-left: 18px; }
+    li { margin-bottom: 3px; }
+    p { margin-bottom: 6px; }
+    strong { color: #1b4332; }
+  </style>
+</head>
+<body>
+  <h1>${title}</h1>
+  ${htmlContent}
+</body>
+</html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 600);
+  }
+</script>
+{% endblock %}

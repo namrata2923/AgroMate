@@ -514,8 +514,49 @@ def market_prices():
                 resp.raise_for_status()
                 data = resp.json()
                 records = data.get("records", [])
+                
+                # Debug: Log API response info
+                print(f"[DEBUG] API Search: commodity='{commodity}', state='{state}'")
+                print(f"[DEBUG] API Response count: {data.get('count', 0)}")
+                print(f"[DEBUG] Records found: {len(records)}")
+                
+                # Debug: Show what states are actually in the records
+                if records:
+                    states_in_records = set(r.get("state", "").strip() for r in records)
+                    print(f"[DEBUG] States in records: {states_in_records}")
+                    print(f"[DEBUG] First record: {records[0]}")
+                    
+                    # Filter to only keep records matching the requested state (in case API returns mixed results)
+                    records = [r for r in records if r.get("state", "").strip().lower() == state.lower()]
+                    print(f"[DEBUG] After filtering: {len(records)} records")
+                
                 if not records:
                     error = f"No market data found for '{commodity}' in {state}. Try checking the spelling or try a different commodity."
+                    
+                    # Also suggest available states
+                    print(f"[DEBUG] No records found - checking available states...")
+                    try:
+                        # Query API without state filter to find what states have data
+                        params_all = {
+                            "api-key": DATA_GOV_API_KEY,
+                            "format": "json",
+                            "limit": 500,
+                        }
+                        resp_all = http_requests.get(
+                            f"https://api.data.gov.in/resource/{_MANDI_RESOURCE}",
+                            params=params_all,
+                            timeout=10
+                        )
+                        resp_all.raise_for_status()
+                        data_all = resp_all.json()
+                        available_states = sorted(list(set(
+                            r.get("state", "").strip() for r in data_all.get("records", []) if r.get("state")
+                        )))
+                        print(f"[DEBUG] Available states with data: {available_states}")
+                        if available_states:
+                            error += f"\n\nAvailable states: {', '.join(available_states)}"
+                    except Exception as e:
+                        print(f"[DEBUG] Could not fetch available states: {e}")
             except http_requests.exceptions.Timeout:
                 error = "Request timed out. The data.gov.in API is slow right now — please try again."
             except Exception as e:
@@ -534,15 +575,58 @@ def market_prices():
         return Response(output, mimetype="text/csv",
                         headers={"Content-Disposition": f"attachment;filename=market_prices_{commodity}_{state}.csv"})
 
+    # Debug: Log what gets rendered
+    print(f"[DEBUG] RENDER: commodity='{commodity}', state='{state}', records_count='{len(records)}'")
+    
     return render_template(
         "market_prices.html",
         records=records,
         commodity=commodity,
         state=state,
         commodities=MARKET_COMMODITIES,
-        sort_fields=MARKET_SORT_FIELDS,
         error=error
     )
+
+
+@app.route("/api/market-states", methods=["GET"])
+@login_required
+def get_market_states():
+    """Fetch all available states from data.gov.in API"""
+    try:
+        if not DATA_GOV_API_KEY:
+            print("[ERROR] DATA_GOV_API_KEY not configured")
+            return {"states": [], "error": "API key not configured"}, 500
+        
+        print("[DEBUG] get_market_states: Fetching states from API...")
+        params = {
+            "api-key": DATA_GOV_API_KEY,
+            "format": "json",
+            "limit": 1000,
+        }
+        resp = http_requests.get(
+            f"https://api.data.gov.in/resource/{_MANDI_RESOURCE}",
+            params=params,
+            timeout=10
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        records = data.get("records", [])
+        
+        # Extract unique states
+        states = sorted(list(set(r.get("state", "").strip() for r in records if r.get("state"))))
+        print(f"[DEBUG] get_market_states: Found {len(states)} states")
+        
+        return {"states": states, "count": len(records)}, 200
+    
+    except http_requests.exceptions.Timeout:
+        print("[ERROR] get_market_states: API timeout")
+        return {"states": [], "error": "API timeout"}, 500
+    except http_requests.exceptions.RequestException as e:
+        print(f"[ERROR] get_market_states: Request failed - {str(e)}")
+        return {"states": [], "error": f"Request failed: {str(e)}"}, 500
+    except Exception as e:
+        print(f"[ERROR] get_market_states: Unexpected error - {str(e)}")
+        return {"states": [], "error": str(e)}, 500
 
 
 # ── Chatbot (Groq – llama-3.3-70b-versatile) ──

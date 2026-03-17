@@ -33,7 +33,7 @@
         </div>
         <div>
           <h4 class="mb-0">Search Mandi Prices</h4>
-          <p class="text-muted small mb-0">Filter by commodity, location and date range</p>
+          <p class="text-muted small mb-0">Find current market prices by commodity and state</p>
         </div>
       </div>
 
@@ -43,8 +43,15 @@
             <label class="form-label fw-semibold">
               <i class="bi bi-geo-alt me-2 text-success"></i>State <span class="text-danger">*</span>
             </label>
-            <input type="text" name="state" class="form-control"
-                   placeholder="e.g. Maharashtra" value="{{ state }}" required>
+            <input type="text" name="state" id="stateInput" class="form-control"
+                   placeholder="e.g. Uttar Pradesh" value="{{ state }}" list="stateList" required autocomplete="off">
+            <datalist id="stateList">
+              <option value="Uttar Pradesh">
+              <option value="Maharashtra">
+              <option value="Punjab">
+              <option value="Haryana">
+            </datalist>
+            <small class="text-muted d-block mt-1" id="stateHint"></small>
           </div>
           <div class="col-md-5">
             <label class="form-label fw-semibold">
@@ -67,14 +74,28 @@
 
     <!-- Error -->
     {% if error %}
-    <div class="alert alert-warning d-flex align-items-center gap-2" data-aos="fade-up">
-      <i class="bi bi-exclamation-triangle-fill fs-5"></i>
-      <span>{{ error }}</span>
+    <div class="alert alert-warning d-flex flex-column gap-2" data-aos="fade-up">
+      <div class="d-flex align-items-start gap-2">
+        <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0 mt-1"></i>
+        <div>
+          {% for line in error.split('\n') %}
+            {% if line.strip() %}
+              <div>{{ line }}</div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
     </div>
     {% endif %}
 
     <!-- Results -->
     {% if records %}
+    <!-- Debug: Show search parameters -->
+    <div class="alert alert-info small d-flex align-items-center gap-2 mb-4" data-aos="fade-up">
+      <i class="bi bi-info-circle-fill"></i>
+      <span>Results for <strong>{{ commodity }}</strong> in <strong>{{ state }}</strong> • {{ records|length }} records found</span>
+    </div>
+    
     {% set prices = records | map(attribute='modal_price') | map('float') | list %}
     {% set min_p  = records | map(attribute='min_price')   | map('float') | list %}
     {% set max_p  = records | map(attribute='max_price')   | map('float') | list %}
@@ -136,11 +157,7 @@
         <h5 class="mb-0">
           <i class="bi bi-table text-success me-2"></i>Detailed Records
         </h5>
-        <a href="{{ url_for('market_prices',
-                   commodity=commodity, state=state, district=district,
-                   date_from=date_from, date_to=date_to,
-                   sort_by=sort_by, sort_order=sort_order,
-                   export='csv') }}"
+        <a href="{{ url_for('market_prices', commodity=commodity, state=state, export='csv') }}"
            class="btn btn-outline-success btn-sm">
           <i class="bi bi-download me-1"></i>Download CSV
         </a>
@@ -213,5 +230,46 @@
 
   </div>
 </section>
+
+<script>
+// Fetch available states from API and populate datalist
+async function loadAvailableStates() {
+  try {
+    console.log('Fetching available states...');
+    const response = await fetch('{{ url_for("get_market_states") }}');
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log('States fetched:', data);
+    
+    if (data.states && data.states.length > 0) {
+      const stateList = document.getElementById('stateList');
+      stateList.innerHTML = '';
+      
+      data.states.forEach(state => {
+        const option = document.createElement('option');
+        option.value = state;
+        stateList.appendChild(option);
+      });
+      
+      const hint = document.getElementById('stateHint');
+      hint.textContent = `✓ ${data.count} records available • ${data.states.length} states in database`;
+    } else {
+      console.warn('No states returned from API');
+    }
+  } catch (err) {
+    console.error('Error loading available states:', err);
+    // Silently fail - datalist will just show empty
+    const hint = document.getElementById('stateHint');
+    hint.textContent = '(Could not load state suggestions)';
+  }
+}
+
+// Load states on page load
+document.addEventListener('DOMContentLoaded', loadAvailableStates);
+</script>
 
 {% endblock %}
