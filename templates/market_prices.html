@@ -37,24 +37,16 @@
         </div>
       </div>
 
-      <form method="POST" action="{{ url_for('market_prices') }}" class="mt-4" id="marketForm">
-        <!-- Row 1: State, District, Commodity -->
-        <div class="row g-3 mb-3">
-          <div class="col-md-4">
+      <form method="POST" action="{{ url_for('market_prices') }}" class="mt-4">
+        <div class="row g-3">
+          <div class="col-md-5">
             <label class="form-label fw-semibold">
-              <i class="bi bi-geo-alt me-2 text-success"></i>State
+              <i class="bi bi-geo-alt me-2 text-success"></i>State <span class="text-danger">*</span>
             </label>
             <input type="text" name="state" class="form-control"
-                   placeholder="e.g. Maharashtra" value="{{ state }}">
+                   placeholder="e.g. Maharashtra" value="{{ state }}" required>
           </div>
-          <div class="col-md-4">
-            <label class="form-label fw-semibold">
-              <i class="bi bi-pin-map me-2 text-success"></i>District
-            </label>
-            <input type="text" name="district" class="form-control"
-                   placeholder="e.g. Pune" value="{{ district }}">
-          </div>
-          <div class="col-md-4">
+          <div class="col-md-5">
             <label class="form-label fw-semibold">
               <i class="bi bi-basket me-2 text-success"></i>Commodity <span class="text-danger">*</span>
             </label>
@@ -64,41 +56,7 @@
               {% endfor %}
             </select>
           </div>
-        </div>
-
-        <!-- Row 2: Date From, Date To, Sort By, Order, Submit -->
-        <div class="row g-3 align-items-end">
-          <div class="col-md-3">
-            <label class="form-label fw-semibold">
-              <i class="bi bi-calendar-event me-2 text-success"></i>Arrival Date From
-            </label>
-            <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
-            <small class="text-muted">Today's data may not be submitted yet</small>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label fw-semibold">
-              <i class="bi bi-calendar-check me-2 text-success"></i>Arrival Date To
-            </label>
-            <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
-          </div>
-          <div class="col-md-2">
-            <label class="form-label fw-semibold">
-              <i class="bi bi-sort-down me-2 text-success"></i>Sort By
-            </label>
-            <select name="sort_by" class="form-select">
-              {% for val, label in sort_fields %}
-              <option value="{{ val }}" {% if val == sort_by %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="col-md-2">
-            <label class="form-label fw-semibold">Order</label>
-            <select name="sort_order" class="form-select">
-              <option value="asc"  {% if sort_order == "asc"  %}selected{% endif %}>Ascending</option>
-              <option value="desc" {% if sort_order == "desc" %}selected{% endif %}>Descending</option>
-            </select>
-          </div>
-          <div class="col-md-2">
+          <div class="col-md-2 d-flex align-items-end">
             <button type="submit" class="btn btn-success w-100">
               <i class="bi bi-search me-2"></i>Get Prices
             </button>
@@ -121,7 +79,7 @@
     {% set min_p  = records | map(attribute='min_price')   | map('float') | list %}
     {% set max_p  = records | map(attribute='max_price')   | map('float') | list %}
     {% set avg    = (prices | sum / prices | length) | round(2) %}
-    {% set loc    = district if district else (state if state else "India") %}
+    {% set loc    = state %}
 
     <!-- Stat Cards -->
     <div class="row g-4 mb-5" data-aos="fade-up">
