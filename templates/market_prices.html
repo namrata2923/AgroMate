@@ -331,21 +331,21 @@ async function loadCommoditiesForState(state) {
 }
 
 // Event listener: When state changes, load commodities
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
   const stateSelect = document.getElementById('stateSelect');
   
-  // Load states on page load
-  loadAvailableStates();
+  // Wait for states to load on page load
+  await loadAvailableStates();
+  
+  // NOW load commodities for the previously selected state (if any)
+  if (stateSelect.value) {
+    await loadCommoditiesForState(stateSelect.value);
+  }
   
   // Load commodities when state changes
   stateSelect.addEventListener('change', function() {
     loadCommoditiesForState(this.value);
   });
-  
-  // If state was already selected (from previous search), load its commodities
-  if (stateSelect.value) {
-    loadCommoditiesForState(stateSelect.value);
-  }
 });
 </script>
 

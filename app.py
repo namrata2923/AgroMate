@@ -459,6 +459,57 @@ DATA_GOV_API_KEY = os.environ.get('DATA_GOV_API_KEY', '')
 # data.gov.in resource ID for daily mandi prices
 _MANDI_RESOURCE = "9ef84268-d588-465a-a308-a864a43d0070"
 
+# ─── CACHE FOR MANDI PRICES DATA (Speeds up lookups) ──────────
+# Stores all market records fetched from data.gov.in in memory
+_MANDI_CACHE = []
+_MANDI_CACHE_LOADED = False
+
+def _load_mandi_cache():
+    """
+    Fetch ALL mandi records from data.gov.in API once and cache in memory.
+    This is called on app startup and significantly speeds up all queries.
+    """
+    global _MANDI_CACHE, _MANDI_CACHE_LOADED
+    
+    if _MANDI_CACHE_LOADED:
+        print("[DEBUG] Mandi cache already loaded")
+        return
+    
+    print("[STARTUP] Loading mandi cache from data.gov.in...")
+    try:
+        if not DATA_GOV_API_KEY:
+            print("[ERROR] DATA_GOV_API_KEY not configured - cache load failed")
+            return
+        
+        params = {
+            "api-key": DATA_GOV_API_KEY,
+            "format": "json",
+            "limit": 10000,  # Get as many records as possible
+            "offset": 0
+        }
+        
+        resp = http_requests.get(
+            f"https://api.data.gov.in/resource/{_MANDI_RESOURCE}",
+            params=params,
+            timeout=30  # Longer timeout for initial load
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        _MANDI_CACHE = data.get("records", [])
+        _MANDI_CACHE_LOADED = True
+        
+        # Extract and log stats
+        states = set(r.get("state", "").strip() for r in _MANDI_CACHE if r.get("state"))
+        commodities = set(r.get("commodity", "").strip() for r in _MANDI_CACHE if r.get("commodity"))
+        
+        print(f"[STARTUP] ✓ Mandi cache loaded: {len(_MANDI_CACHE)} records")
+        print(f"[STARTUP] ✓ States: {len(states)} | Commodities: {len(commodities)}")
+        
+    except http_requests.exceptions.Timeout:
+        print("[ERROR] Cache load timeout - data.gov.in API took too long")
+    except Exception as e:
+        print(f"[ERROR] Failed to load mandi cache: {str(e)}")
+
 # Commodity choices shown in the UI
 MARKET_COMMODITIES = [
     "Tomato", "Potato", "Onion", "Rice", "Wheat", "Maize",
@@ -492,75 +543,34 @@ def market_prices():
         commodity  = (request.form.get("commodity")   or request.args.get("commodity", "Tomato")).strip()
         state      = (request.form.get("state", "")   or request.args.get("state", "")).strip()
 
-        if not DATA_GOV_API_KEY:
-            error = "DATA_GOV_API_KEY is not configured. Add it to your .env file."
-        elif not state:
+        if not state:
             error = "Please enter a state name."
+        elif not _MANDI_CACHE:
+            error = "Market data cache is not loaded yet. Please try again in a moment."
         else:
-            try:
-                params = {
-                    "api-key": DATA_GOV_API_KEY,
-                    "format": "json",
-                    "limit": 100,
-                    "filters[commodity]": commodity,
-                    "filters[state]": state,
-                }
-
-                resp = http_requests.get(
-                    f"https://api.data.gov.in/resource/{_MANDI_RESOURCE}",
-                    params=params,
-                    timeout=10
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                records = data.get("records", [])
+            # Search in cache (no API call!)
+            print(f"[DEBUG] Cache Search: commodity='{commodity}', state='{state}'")
+            print(f"[DEBUG] Cache contains {len(_MANDI_CACHE)} total records")
+            
+            # Filter cache by state and commodity (case-insensitive)
+            records = [
+                r for r in _MANDI_CACHE
+                if r.get("state", "").strip().lower() == state.lower()
+                and r.get("commodity", "").strip().lower() == commodity.lower()
+            ]
+            
+            print(f"[DEBUG] Cache Results: {len(records)} records found")
+            
+            if not records:
+                error = f"No market data found for '{commodity}' in {state}. Try checking the spelling or try a different commodity."
                 
-                # Debug: Log API response info
-                print(f"[DEBUG] API Search: commodity='{commodity}', state='{state}'")
-                print(f"[DEBUG] API Response count: {data.get('count', 0)}")
-                print(f"[DEBUG] Records found: {len(records)}")
-                
-                # Debug: Show what states are actually in the records
-                if records:
-                    states_in_records = set(r.get("state", "").strip() for r in records)
-                    print(f"[DEBUG] States in records: {states_in_records}")
-                    print(f"[DEBUG] First record: {records[0]}")
-                    
-                    # Filter to only keep records matching the requested state (in case API returns mixed results)
-                    records = [r for r in records if r.get("state", "").strip().lower() == state.lower()]
-                    print(f"[DEBUG] After filtering: {len(records)} records")
-                
-                if not records:
-                    error = f"No market data found for '{commodity}' in {state}. Try checking the spelling or try a different commodity."
-                    
-                    # Also suggest available states
-                    print(f"[DEBUG] No records found - checking available states...")
-                    try:
-                        # Query API without state filter to find what states have data
-                        params_all = {
-                            "api-key": DATA_GOV_API_KEY,
-                            "format": "json",
-                            "limit": 500,
-                        }
-                        resp_all = http_requests.get(
-                            f"https://api.data.gov.in/resource/{_MANDI_RESOURCE}",
-                            params=params_all,
-                            timeout=10
-                        )
-                        resp_all.raise_for_status()
-                        data_all = resp_all.json()
-                        available_states = sorted(list(set(
-                            r.get("state", "").strip() for r in data_all.get("records", []) if r.get("state")
-                        )))
-                        print(f"[DEBUG] Available states with data: {available_states}")
-                        if available_states:
-                            error += f"\n\nAvailable states: {', '.join(available_states)}"
-                    except Exception as e:
-                        print(f"[DEBUG] Could not fetch available states: {e}")
-            except http_requests.exceptions.Timeout:
-                error = "Request timed out. The data.gov.in API is slow right now — please try again."
-            except Exception as e:
-                error = f"Could not fetch market data: {str(e)}"
+                # Suggest available states from cache
+                available_states = sorted(list(set(
+                    r.get("state", "").strip() for r in _MANDI_CACHE if r.get("state")
+                )))
+                print(f"[DEBUG] Available states in cache: {available_states}")
+                if available_states:
+                    error += f"\n\nAvailable states: {', '.join(available_states)}"
 
     # CSV export
     if records and request.args.get("export") == "csv":
@@ -591,87 +601,49 @@ def market_prices():
 @app.route("/api/market-states", methods=["GET"])
 @login_required
 def get_market_states():
-    """Fetch all available states from data.gov.in API"""
+    """Fetch all available states from cache (instant - no API call)"""
     try:
-        if not DATA_GOV_API_KEY:
-            print("[ERROR] DATA_GOV_API_KEY not configured")
-            return {"states": [], "error": "API key not configured"}, 500
+        if not _MANDI_CACHE:
+            print("[DEBUG] get_market_states: Cache not loaded yet")
+            return {"states": [], "error": "Cache not loaded"}, 503
         
-        print("[DEBUG] get_market_states: Fetching states from API...")
-        params = {
-            "api-key": DATA_GOV_API_KEY,
-            "format": "json",
-            "limit": 1000,
-        }
-        resp = http_requests.get(
-            f"https://api.data.gov.in/resource/{_MANDI_RESOURCE}",
-            params=params,
-            timeout=10
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        records = data.get("records", [])
+        # Extract unique states from cache (instant lookup)
+        states = sorted(list(set(r.get("state", "").strip() for r in _MANDI_CACHE if r.get("state"))))
+        print(f"[DEBUG] get_market_states: Returning {len(states)} states from cache (instant)")
         
-        # Extract unique states
-        states = sorted(list(set(r.get("state", "").strip() for r in records if r.get("state"))))
-        print(f"[DEBUG] get_market_states: Found {len(states)} states")
-        
-        return {"states": states, "count": len(records)}, 200
+        return {"states": states, "count": len(_MANDI_CACHE)}, 200
     
-    except http_requests.exceptions.Timeout:
-        print("[ERROR] get_market_states: API timeout")
-        return {"states": [], "error": "API timeout"}, 500
-    except http_requests.exceptions.RequestException as e:
-        print(f"[ERROR] get_market_states: Request failed - {str(e)}")
-        return {"states": [], "error": f"Request failed: {str(e)}"}, 500
     except Exception as e:
-        print(f"[ERROR] get_market_states: Unexpected error - {str(e)}")
+        print(f"[ERROR] get_market_states: {str(e)}")
         return {"states": [], "error": str(e)}, 500
 
 
 @app.route("/api/market-commodities", methods=["GET"])
 @login_required
 def get_market_commodities():
-    """Fetch commodities available for a given state"""
+    """Fetch commodities available for a given state (from cache - instant)"""
     try:
         state = request.args.get("state", "").strip()
         
         if not state:
             return {"commodities": [], "error": "State parameter required"}, 400
         
-        if not DATA_GOV_API_KEY:
-            return {"commodities": [], "error": "API key not configured"}, 500
+        if not _MANDI_CACHE:
+            print("[DEBUG] get_market_commodities: Cache not loaded yet")
+            return {"commodities": [], "error": "Cache not loaded"}, 503
         
-        print(f"[DEBUG] get_market_commodities: Fetching commodities for state='{state}'...")
-        params = {
-            "api-key": DATA_GOV_API_KEY,
-            "format": "json",
-            "limit": 1000,
-            "filters[state]": state,
-        }
-        resp = http_requests.get(
-            f"https://api.data.gov.in/resource/{_MANDI_RESOURCE}",
-            params=params,
-            timeout=10
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        records = data.get("records", [])
+        # Extract commodities for this state from cache (instant lookup)
+        commodities = sorted(list(set(
+            r.get("commodity", "").strip() 
+            for r in _MANDI_CACHE 
+            if r.get("state", "").strip().lower() == state.lower() and r.get("commodity")
+        )))
+        print(f"[DEBUG] get_market_commodities: {len(commodities)} commodities in {state} (instant from cache)")
         
-        # Extract unique commodities for this state
-        commodities = sorted(list(set(r.get("commodity", "").strip() for r in records if r.get("commodity"))))
-        print(f"[DEBUG] get_market_commodities: Found {len(commodities)} commodities in {state}")
-        
-        return {"commodities": commodities, "state": state, "count": len(records)}, 200
+        return {"commodities": commodities, "state": state, "count": len(commodities)}, 200
     
-    except http_requests.exceptions.Timeout:
-        print("[ERROR] get_market_commodities: API timeout")
-        return {"commodities": [], "error": "API timeout"}, 500
-    except http_requests.exceptions.RequestException as e:
-        print(f"[ERROR] get_market_commodities: Request failed - {str(e)}")
-        return {"commodities": [], "error": f"Request failed: {str(e)}"}, 500
     except Exception as e:
-        print(f"[ERROR] get_market_commodities: Unexpected error - {str(e)}")
+        print(f"[ERROR] get_market_commodities: {str(e)}")
         return {"commodities": [], "error": str(e)}, 500
 
 
@@ -1159,4 +1131,7 @@ def logbook_generation():
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
+        # Load mandi pricing data into cache on startup
+        print("[STARTUP] Loading market data cache...")
+        _load_mandi_cache()
     app.run(debug=True)
