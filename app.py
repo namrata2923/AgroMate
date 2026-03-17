@@ -629,6 +629,52 @@ def get_market_states():
         return {"states": [], "error": str(e)}, 500
 
 
+@app.route("/api/market-commodities", methods=["GET"])
+@login_required
+def get_market_commodities():
+    """Fetch commodities available for a given state"""
+    try:
+        state = request.args.get("state", "").strip()
+        
+        if not state:
+            return {"commodities": [], "error": "State parameter required"}, 400
+        
+        if not DATA_GOV_API_KEY:
+            return {"commodities": [], "error": "API key not configured"}, 500
+        
+        print(f"[DEBUG] get_market_commodities: Fetching commodities for state='{state}'...")
+        params = {
+            "api-key": DATA_GOV_API_KEY,
+            "format": "json",
+            "limit": 1000,
+            "filters[state]": state,
+        }
+        resp = http_requests.get(
+            f"https://api.data.gov.in/resource/{_MANDI_RESOURCE}",
+            params=params,
+            timeout=10
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        records = data.get("records", [])
+        
+        # Extract unique commodities for this state
+        commodities = sorted(list(set(r.get("commodity", "").strip() for r in records if r.get("commodity"))))
+        print(f"[DEBUG] get_market_commodities: Found {len(commodities)} commodities in {state}")
+        
+        return {"commodities": commodities, "state": state, "count": len(records)}, 200
+    
+    except http_requests.exceptions.Timeout:
+        print("[ERROR] get_market_commodities: API timeout")
+        return {"commodities": [], "error": "API timeout"}, 500
+    except http_requests.exceptions.RequestException as e:
+        print(f"[ERROR] get_market_commodities: Request failed - {str(e)}")
+        return {"commodities": [], "error": f"Request failed: {str(e)}"}, 500
+    except Exception as e:
+        print(f"[ERROR] get_market_commodities: Unexpected error - {str(e)}")
+        return {"commodities": [], "error": str(e)}, 500
+
+
 # ── Chatbot (Groq – llama-3.3-70b-versatile) ──
 
 from flask import jsonify

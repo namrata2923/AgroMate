@@ -43,25 +43,19 @@
             <label class="form-label fw-semibold">
               <i class="bi bi-geo-alt me-2 text-success"></i>State <span class="text-danger">*</span>
             </label>
-            <input type="text" name="state" id="stateInput" class="form-control"
-                   placeholder="e.g. Uttar Pradesh" value="{{ state }}" list="stateList" required autocomplete="off">
-            <datalist id="stateList">
-              <option value="Uttar Pradesh">
-              <option value="Maharashtra">
-              <option value="Punjab">
-              <option value="Haryana">
-            </datalist>
+            <select name="state" id="stateSelect" class="form-select" required>
+              <option value="">-- Select a state --</option>
+            </select>
             <small class="text-muted d-block mt-1" id="stateHint"></small>
           </div>
           <div class="col-md-5">
             <label class="form-label fw-semibold">
               <i class="bi bi-basket me-2 text-success"></i>Commodity <span class="text-danger">*</span>
             </label>
-            <select name="commodity" class="form-select" required>
-              {% for c in commodities %}
-              <option value="{{ c }}" {% if c == commodity %}selected{% endif %}>{{ c }}</option>
-              {% endfor %}
+            <select name="commodity" id="commoditySelect" class="form-select" required disabled>
+              <option value="">-- Select state first --</option>
             </select>
+            <small class="text-muted d-block mt-1" id="commodityHint"></small>
           </div>
           <div class="col-md-2 d-flex align-items-end">
             <button type="submit" class="btn btn-success w-100">
@@ -232,7 +226,9 @@
 </section>
 
 <script>
-// Fetch available states from API and populate datalist
+// === CASCADING DROPDOWNS: State → Commodity ===
+
+// Load available states on page load
 async function loadAvailableStates() {
   try {
     console.log('Fetching available states...');
@@ -246,30 +242,111 @@ async function loadAvailableStates() {
     console.log('States fetched:', data);
     
     if (data.states && data.states.length > 0) {
-      const stateList = document.getElementById('stateList');
-      stateList.innerHTML = '';
+      const stateSelect = document.getElementById('stateSelect');
+      // Clear except first placeholder option
+      stateSelect.innerHTML = '<option value="">-- Select a state --</option>';
       
+      // Add each state as option
       data.states.forEach(state => {
         const option = document.createElement('option');
         option.value = state;
-        stateList.appendChild(option);
+        option.textContent = state;
+        stateSelect.appendChild(option);
       });
       
+      // Set previously selected state if exists
+      if ('{{ state }}') {
+        stateSelect.value = '{{ state }}';
+      }
+      
       const hint = document.getElementById('stateHint');
-      hint.textContent = `✓ ${data.count} records available • ${data.states.length} states in database`;
+      hint.textContent = `✓ ${data.states.length} states available with data`;
     } else {
       console.warn('No states returned from API');
     }
   } catch (err) {
     console.error('Error loading available states:', err);
-    // Silently fail - datalist will just show empty
     const hint = document.getElementById('stateHint');
-    hint.textContent = '(Could not load state suggestions)';
+    hint.textContent = '❌ Could not load states';
   }
 }
 
-// Load states on page load
-document.addEventListener('DOMContentLoaded', loadAvailableStates);
+// Load commodities for selected state
+async function loadCommoditiesForState(state) {
+  if (!state) {
+    // Clear commodity dropdown
+    const commoditySelect = document.getElementById('commoditySelect');
+    commoditySelect.innerHTML = '<option value="">-- Select state first --</option>';
+    commoditySelect.disabled = true;
+    document.getElementById('commodityHint').textContent = '';
+    return;
+  }
+  
+  try {
+    console.log(`Fetching commodities for state: ${state}`);
+    const response = await fetch(`{{ url_for("get_market_commodities") }}?state=${encodeURIComponent(state)}`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log(`Commodities for ${state}:`, data);
+    
+    const commoditySelect = document.getElementById('commoditySelect');
+    
+    if (data.commodities && data.commodities.length > 0) {
+      // Clear dropdown and add options
+      commoditySelect.innerHTML = '<option value="">-- Select a commodity --</option>';
+      
+      data.commodities.forEach(commodity => {
+        const option = document.createElement('option');
+        option.value = commodity;
+        option.textContent = commodity;
+        commoditySelect.appendChild(option);
+      });
+      
+      // Set previously selected commodity if exists
+      if ('{{ commodity }}') {
+        commoditySelect.value = '{{ commodity }}';
+      }
+      
+      // Enable dropdown
+      commoditySelect.disabled = false;
+      
+      const hint = document.getElementById('commodityHint');
+      hint.textContent = `✓ ${data.commodities.length} commodities available in ${state}`;
+    } else {
+      commoditySelect.innerHTML = `<option value="">No commodities found in ${state}</option>`;
+      commoditySelect.disabled = true;
+      document.getElementById('commodityHint').textContent = '❌ No data for this state';
+    }
+  } catch (err) {
+    console.error(`Error loading commodities for ${state}:`, err);
+    const commoditySelect = document.getElementById('commoditySelect');
+    commoditySelect.innerHTML = `<option value="">Error loading commodities</option>`;
+    commoditySelect.disabled = true;
+    document.getElementById('commodityHint').textContent = '❌ Error loading commodities';
+  }
+}
+
+// Event listener: When state changes, load commodities
+document.addEventListener('DOMContentLoaded', function() {
+  const stateSelect = document.getElementById('stateSelect');
+  
+  // Load states on page load
+  loadAvailableStates();
+  
+  // Load commodities when state changes
+  stateSelect.addEventListener('change', function() {
+    loadCommoditiesForState(this.value);
+  });
+  
+  // If state was already selected (from previous search), load its commodities
+  if (stateSelect.value) {
+    loadCommoditiesForState(stateSelect.value);
+  }
+});
 </script>
 
 {% endblock %}
