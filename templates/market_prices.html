@@ -33,72 +33,31 @@
         </div>
         <div>
           <h4 class="mb-0">Search Mandi Prices</h4>
-          <p class="text-muted small mb-0">Filter by commodity, location and date range</p>
+          <p class="text-muted small mb-0">Find current market prices by commodity and state</p>
         </div>
       </div>
 
-      <form method="POST" action="{{ url_for('market_prices') }}" class="mt-4" id="marketForm">
-        <!-- Row 1: State, District, Commodity -->
-        <div class="row g-3 mb-3">
-          <div class="col-md-4">
+      <form method="POST" action="{{ url_for('market_prices') }}" class="mt-4">
+        <div class="row g-3">
+          <div class="col-md-5">
             <label class="form-label fw-semibold">
-              <i class="bi bi-geo-alt me-2 text-success"></i>State
+              <i class="bi bi-geo-alt me-2 text-success"></i>State <span class="text-danger">*</span>
             </label>
-            <input type="text" name="state" class="form-control"
-                   placeholder="e.g. Maharashtra" value="{{ state }}">
+            <select name="state" id="stateSelect" class="form-select" required>
+              <option value="">-- Select a state --</option>
+            </select>
+            <small class="text-muted d-block mt-1" id="stateHint"></small>
           </div>
-          <div class="col-md-4">
-            <label class="form-label fw-semibold">
-              <i class="bi bi-pin-map me-2 text-success"></i>District
-            </label>
-            <input type="text" name="district" class="form-control"
-                   placeholder="e.g. Pune" value="{{ district }}">
-          </div>
-          <div class="col-md-4">
+          <div class="col-md-5">
             <label class="form-label fw-semibold">
               <i class="bi bi-basket me-2 text-success"></i>Commodity <span class="text-danger">*</span>
             </label>
-            <select name="commodity" class="form-select" required>
-              {% for c in commodities %}
-              <option value="{{ c }}" {% if c == commodity %}selected{% endif %}>{{ c }}</option>
-              {% endfor %}
+            <select name="commodity" id="commoditySelect" class="form-select" required disabled>
+              <option value="">-- Select state first --</option>
             </select>
+            <small class="text-muted d-block mt-1" id="commodityHint"></small>
           </div>
-        </div>
-
-        <!-- Row 2: Date From, Date To, Sort By, Order, Submit -->
-        <div class="row g-3 align-items-end">
-          <div class="col-md-3">
-            <label class="form-label fw-semibold">
-              <i class="bi bi-calendar-event me-2 text-success"></i>Arrival Date From
-            </label>
-            <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
-            <small class="text-muted">Today's data may not be submitted yet</small>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label fw-semibold">
-              <i class="bi bi-calendar-check me-2 text-success"></i>Arrival Date To
-            </label>
-            <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
-          </div>
-          <div class="col-md-2">
-            <label class="form-label fw-semibold">
-              <i class="bi bi-sort-down me-2 text-success"></i>Sort By
-            </label>
-            <select name="sort_by" class="form-select">
-              {% for val, label in sort_fields %}
-              <option value="{{ val }}" {% if val == sort_by %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="col-md-2">
-            <label class="form-label fw-semibold">Order</label>
-            <select name="sort_order" class="form-select">
-              <option value="asc"  {% if sort_order == "asc"  %}selected{% endif %}>Ascending</option>
-              <option value="desc" {% if sort_order == "desc" %}selected{% endif %}>Descending</option>
-            </select>
-          </div>
-          <div class="col-md-2">
+          <div class="col-md-2 d-flex align-items-end">
             <button type="submit" class="btn btn-success w-100">
               <i class="bi bi-search me-2"></i>Get Prices
             </button>
@@ -109,19 +68,33 @@
 
     <!-- Error -->
     {% if error %}
-    <div class="alert alert-warning d-flex align-items-center gap-2" data-aos="fade-up">
-      <i class="bi bi-exclamation-triangle-fill fs-5"></i>
-      <span>{{ error }}</span>
+    <div class="alert alert-warning d-flex flex-column gap-2" data-aos="fade-up">
+      <div class="d-flex align-items-start gap-2">
+        <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0 mt-1"></i>
+        <div>
+          {% for line in error.split('\n') %}
+            {% if line.strip() %}
+              <div>{{ line }}</div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
     </div>
     {% endif %}
 
     <!-- Results -->
     {% if records %}
+    <!-- Debug: Show search parameters -->
+    <div class="alert alert-info small d-flex align-items-center gap-2 mb-4" data-aos="fade-up">
+      <i class="bi bi-info-circle-fill"></i>
+      <span>Results for <strong>{{ commodity }}</strong> in <strong>{{ state }}</strong> • {{ records|length }} records found</span>
+    </div>
+    
     {% set prices = records | map(attribute='modal_price') | map('float') | list %}
     {% set min_p  = records | map(attribute='min_price')   | map('float') | list %}
     {% set max_p  = records | map(attribute='max_price')   | map('float') | list %}
     {% set avg    = (prices | sum / prices | length) | round(2) %}
-    {% set loc    = district if district else (state if state else "India") %}
+    {% set loc    = state %}
 
     <!-- Stat Cards -->
     <div class="row g-4 mb-5" data-aos="fade-up">
@@ -178,11 +151,7 @@
         <h5 class="mb-0">
           <i class="bi bi-table text-success me-2"></i>Detailed Records
         </h5>
-        <a href="{{ url_for('market_prices',
-                   commodity=commodity, state=state, district=district,
-                   date_from=date_from, date_to=date_to,
-                   sort_by=sort_by, sort_order=sort_order,
-                   export='csv') }}"
+        <a href="{{ url_for('market_prices', commodity=commodity, state=state, export='csv') }}"
            class="btn btn-outline-success btn-sm">
           <i class="bi bi-download me-1"></i>Download CSV
         </a>
@@ -255,5 +224,163 @@
 
   </div>
 </section>
+
+<script>
+// === CASCADING DROPDOWNS: State → Commodity ===
+
+// Load available states on page load
+async function loadAvailableStates() {
+  try {
+    console.log('Fetching available states...');
+    let retries = 0;
+    const maxRetries = 30; // Retry for up to 30 seconds
+    
+    while (retries < maxRetries) {
+      const response = await fetch('{{ url_for("get_market_states") }}');
+      
+      // If still loading (202), wait and retry
+      if (response.status === 202) {
+        console.log('Market data is loading... retrying in 1 second');
+        document.getElementById('stateHint').textContent = '⏳ Loading market data...';
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        retries++;
+        continue;
+      }
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('States fetched:', data);
+      
+      if (data.states && data.states.length > 0) {
+        const stateSelect = document.getElementById('stateSelect');
+        // Clear except first placeholder option
+        stateSelect.innerHTML = '<option value="">-- Select a state --</option>';
+        
+        // Add each state as option
+        data.states.forEach(state => {
+          const option = document.createElement('option');
+          option.value = state;
+          option.textContent = state;
+          stateSelect.appendChild(option);
+        });
+        
+        // Set previously selected state if exists
+        if ('{{ state }}') {
+          stateSelect.value = '{{ state }}';
+        }
+        
+        const hint = document.getElementById('stateHint');
+        hint.textContent = `✓ ${data.states.length} states available with data`;
+      } else {
+        console.warn('No states returned from API');
+      }
+      return; // Successfully loaded
+    }
+    
+    throw new Error('Market data took too long to load');
+  } catch (err) {
+    console.error('Error loading available states:', err);
+    const hint = document.getElementById('stateHint');
+    hint.textContent = '❌ Could not load states - try refreshing the page';
+  }
+}
+
+// Load commodities for selected state
+async function loadCommoditiesForState(state) {
+  if (!state) {
+    // Clear commodity dropdown
+    const commoditySelect = document.getElementById('commoditySelect');
+    commoditySelect.innerHTML = '<option value="">-- Select state first --</option>';
+    commoditySelect.disabled = true;
+    document.getElementById('commodityHint').textContent = '';
+    return;
+  }
+  
+  try {
+    console.log(`Fetching commodities for state: ${state}`);
+    let retries = 0;
+    const maxRetries = 30;
+    
+    while (retries < maxRetries) {
+      const response = await fetch(`{{ url_for("get_market_commodities") }}?state=${encodeURIComponent(state)}`);
+      
+      // If still loading (202), wait and retry
+      if (response.status === 202) {
+        console.log('Market data is loading... retrying in 1 second');
+        document.getElementById('commodityHint').textContent = '⏳ Loading...';
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        retries++;
+        continue;
+      }
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log(`Commodities for ${state}:`, data);
+      
+      const commoditySelect = document.getElementById('commoditySelect');
+      
+      if (data.commodities && data.commodities.length > 0) {
+        // Clear dropdown and add options
+        commoditySelect.innerHTML = '<option value="">-- Select a commodity --</option>';
+        
+        data.commodities.forEach(commodity => {
+          const option = document.createElement('option');
+          option.value = commodity;
+          option.textContent = commodity;
+          commoditySelect.appendChild(option);
+        });
+        
+        // Set previously selected commodity if exists
+        if ('{{ commodity }}') {
+          commoditySelect.value = '{{ commodity }}';
+        }
+        
+        // Enable dropdown
+        commoditySelect.disabled = false;
+        
+        const hint = document.getElementById('commodityHint');
+        hint.textContent = `✓ ${data.commodities.length} commodities available in ${state}`;
+      } else {
+        commoditySelect.innerHTML = `<option value="">No commodities found in ${state}</option>`;
+        commoditySelect.disabled = true;
+        document.getElementById('commodityHint').textContent = '❌ No data for this state';
+      }
+      return; // Successfully loaded
+    }
+    
+    throw new Error('Commodities data took too long to load');
+  } catch (err) {
+    console.error(`Error loading commodities for ${state}:`, err);
+    const commoditySelect = document.getElementById('commoditySelect');
+    commoditySelect.innerHTML = `<option value="">Error loading commodities</option>`;
+    commoditySelect.disabled = true;
+    document.getElementById('commodityHint').textContent = '❌ Error loading commodities - try refreshing';
+  }
+}
+
+// Event listener: When state changes, load commodities
+document.addEventListener('DOMContentLoaded', async function() {
+  const stateSelect = document.getElementById('stateSelect');
+  
+  // Wait for states to load on page load
+  await loadAvailableStates();
+  
+  // NOW load commodities for the previously selected state (if any)
+  if (stateSelect.value) {
+    await loadCommoditiesForState(stateSelect.value);
+  }
+  
+  // Load commodities when state changes
+  stateSelect.addEventListener('change', function() {
+    loadCommoditiesForState(this.value);
+  });
+});
+</script>
 
 {% endblock %}

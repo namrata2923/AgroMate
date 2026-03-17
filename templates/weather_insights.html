@@ -29,38 +29,23 @@
       <div class="row align-items-center g-4">
         <div class="col-md-5 text-center">
           <i class="bi bi-cloud-sun weather-main-icon"></i>
-          <div class="weather-temp">{{ weather.temperature }}<span class="weather-unit">°C</span></div>
-          <div class="weather-condition">{{ weather.condition }}</div>
-          <div class="weather-city"><i class="bi bi-geo-alt-fill me-1"></i>{{ weather.city }}</div>
+          <div class="weather-temp"><span id="temp">{{ weather.temperature }}</span><span class="weather-unit">°C</span></div>
+          <div class="weather-condition"><span id="condition">{{ weather.condition }}</span></div>
         </div>
         <div class="col-md-7">
           <div class="row g-3">
             <div class="col-6">
               <div class="weather-detail-card">
                 <i class="bi bi-droplet-fill text-info"></i>
-                <span class="detail-value">{{ weather.humidity }}%</span>
+                <span class="detail-value"><span id="humidity">{{ weather.humidity }}</span>%</span>
                 <span class="detail-label">Humidity</span>
               </div>
             </div>
             <div class="col-6">
               <div class="weather-detail-card">
                 <i class="bi bi-wind text-primary"></i>
-                <span class="detail-value">{{ weather.wind_speed }} km/h</span>
+                <span class="detail-value"><span id="wind">{{ weather.wind_speed }}</span> km/h</span>
                 <span class="detail-label">Wind Speed</span>
-              </div>
-            </div>
-            <div class="col-6">
-              <div class="weather-detail-card">
-                <i class="bi bi-cloud-rain-fill text-secondary"></i>
-                <span class="detail-value">{{ weather.rainfall_chance }}%</span>
-                <span class="detail-label">Rain Chance</span>
-              </div>
-            </div>
-            <div class="col-6">
-              <div class="weather-detail-card">
-                <i class="bi bi-sun-fill text-warning"></i>
-                <span class="detail-value">{{ weather.uv_index }}</span>
-                <span class="detail-label">UV Index</span>
               </div>
             </div>
           </div>
@@ -68,22 +53,6 @@
       </div>
     </div>
 
-    <!-- 5-Day Forecast -->
-    <div class="section-header text-center mb-4" data-aos="fade-up">
-      <h4 class="fw-bold">5-Day Forecast</h4>
-    </div>
-    <div class="row g-3 mb-5">
-      {% for day in weather.forecast %}
-      <div class="col" data-aos="fade-up" data-aos-delay="{{ loop.index * 100 }}">
-        <div class="forecast-card text-center">
-          <div class="forecast-day">{{ day.day }}</div>
-          <i class="bi bi-{{ day.icon }} forecast-icon"></i>
-          <div class="forecast-high">{{ day.high }}°</div>
-          <div class="forecast-low text-muted">{{ day.low }}°</div>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
 
     <!-- Farming Advice -->
     <div class="row g-4">
@@ -138,3 +107,42 @@
 </section>
 
 {% endblock %}
+
+<script>
+// Fetch weather from user's current location using geolocation API
+function fetchWeatherFromLocation() {
+    if (!navigator.geolocation) {
+        console.log("Geolocation not supported, using demo data");
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            console.log(`Got location: lat=${lat}, lon=${lon}`);
+
+            // Fetch weather from our /api/weather endpoint
+            fetch(`/api/weather?lat=${lat}&lon=${lon}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Weather data received:", data);
+                    if (!data.error) {
+                        document.getElementById("temp").innerText = data.temperature;
+                        document.getElementById("humidity").innerText = data.humidity;
+                        document.getElementById("condition").innerText = data.condition;
+                        document.getElementById("wind").innerText = data.wind_speed;
+                    }
+                })
+                .catch(error => console.error("Error fetching weather:", error));
+        },
+        function(error) {
+            console.log("Geolocation error:", error.message, " - Using demo data");
+        },
+        { timeout: 5000, enableHighAccuracy: false }
+    );
+}
+
+// Request geolocation when page loads
+window.addEventListener('load', fetchWeatherFromLocation);
+</script>
