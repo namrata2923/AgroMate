@@ -232,42 +232,59 @@
 async function loadAvailableStates() {
   try {
     console.log('Fetching available states...');
-    const response = await fetch('{{ url_for("get_market_states") }}');
+    let retries = 0;
+    const maxRetries = 30; // Retry for up to 30 seconds
     
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    console.log('States fetched:', data);
-    
-    if (data.states && data.states.length > 0) {
-      const stateSelect = document.getElementById('stateSelect');
-      // Clear except first placeholder option
-      stateSelect.innerHTML = '<option value="">-- Select a state --</option>';
+    while (retries < maxRetries) {
+      const response = await fetch('{{ url_for("get_market_states") }}');
       
-      // Add each state as option
-      data.states.forEach(state => {
-        const option = document.createElement('option');
-        option.value = state;
-        option.textContent = state;
-        stateSelect.appendChild(option);
-      });
-      
-      // Set previously selected state if exists
-      if ('{{ state }}') {
-        stateSelect.value = '{{ state }}';
+      // If still loading (202), wait and retry
+      if (response.status === 202) {
+        console.log('Market data is loading... retrying in 1 second');
+        document.getElementById('stateHint').textContent = '⏳ Loading market data...';
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        retries++;
+        continue;
       }
       
-      const hint = document.getElementById('stateHint');
-      hint.textContent = `✓ ${data.states.length} states available with data`;
-    } else {
-      console.warn('No states returned from API');
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('States fetched:', data);
+      
+      if (data.states && data.states.length > 0) {
+        const stateSelect = document.getElementById('stateSelect');
+        // Clear except first placeholder option
+        stateSelect.innerHTML = '<option value="">-- Select a state --</option>';
+        
+        // Add each state as option
+        data.states.forEach(state => {
+          const option = document.createElement('option');
+          option.value = state;
+          option.textContent = state;
+          stateSelect.appendChild(option);
+        });
+        
+        // Set previously selected state if exists
+        if ('{{ state }}') {
+          stateSelect.value = '{{ state }}';
+        }
+        
+        const hint = document.getElementById('stateHint');
+        hint.textContent = `✓ ${data.states.length} states available with data`;
+      } else {
+        console.warn('No states returned from API');
+      }
+      return; // Successfully loaded
     }
+    
+    throw new Error('Market data took too long to load');
   } catch (err) {
     console.error('Error loading available states:', err);
     const hint = document.getElementById('stateHint');
-    hint.textContent = '❌ Could not load states';
+    hint.textContent = '❌ Could not load states - try refreshing the page';
   }
 }
 
@@ -284,49 +301,66 @@ async function loadCommoditiesForState(state) {
   
   try {
     console.log(`Fetching commodities for state: ${state}`);
-    const response = await fetch(`{{ url_for("get_market_commodities") }}?state=${encodeURIComponent(state)}`);
+    let retries = 0;
+    const maxRetries = 30;
     
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    console.log(`Commodities for ${state}:`, data);
-    
-    const commoditySelect = document.getElementById('commoditySelect');
-    
-    if (data.commodities && data.commodities.length > 0) {
-      // Clear dropdown and add options
-      commoditySelect.innerHTML = '<option value="">-- Select a commodity --</option>';
+    while (retries < maxRetries) {
+      const response = await fetch(`{{ url_for("get_market_commodities") }}?state=${encodeURIComponent(state)}`);
       
-      data.commodities.forEach(commodity => {
-        const option = document.createElement('option');
-        option.value = commodity;
-        option.textContent = commodity;
-        commoditySelect.appendChild(option);
-      });
-      
-      // Set previously selected commodity if exists
-      if ('{{ commodity }}') {
-        commoditySelect.value = '{{ commodity }}';
+      // If still loading (202), wait and retry
+      if (response.status === 202) {
+        console.log('Market data is loading... retrying in 1 second');
+        document.getElementById('commodityHint').textContent = '⏳ Loading...';
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        retries++;
+        continue;
       }
       
-      // Enable dropdown
-      commoditySelect.disabled = false;
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
       
-      const hint = document.getElementById('commodityHint');
-      hint.textContent = `✓ ${data.commodities.length} commodities available in ${state}`;
-    } else {
-      commoditySelect.innerHTML = `<option value="">No commodities found in ${state}</option>`;
-      commoditySelect.disabled = true;
-      document.getElementById('commodityHint').textContent = '❌ No data for this state';
+      const data = await response.json();
+      console.log(`Commodities for ${state}:`, data);
+      
+      const commoditySelect = document.getElementById('commoditySelect');
+      
+      if (data.commodities && data.commodities.length > 0) {
+        // Clear dropdown and add options
+        commoditySelect.innerHTML = '<option value="">-- Select a commodity --</option>';
+        
+        data.commodities.forEach(commodity => {
+          const option = document.createElement('option');
+          option.value = commodity;
+          option.textContent = commodity;
+          commoditySelect.appendChild(option);
+        });
+        
+        // Set previously selected commodity if exists
+        if ('{{ commodity }}') {
+          commoditySelect.value = '{{ commodity }}';
+        }
+        
+        // Enable dropdown
+        commoditySelect.disabled = false;
+        
+        const hint = document.getElementById('commodityHint');
+        hint.textContent = `✓ ${data.commodities.length} commodities available in ${state}`;
+      } else {
+        commoditySelect.innerHTML = `<option value="">No commodities found in ${state}</option>`;
+        commoditySelect.disabled = true;
+        document.getElementById('commodityHint').textContent = '❌ No data for this state';
+      }
+      return; // Successfully loaded
     }
+    
+    throw new Error('Commodities data took too long to load');
   } catch (err) {
     console.error(`Error loading commodities for ${state}:`, err);
     const commoditySelect = document.getElementById('commoditySelect');
     commoditySelect.innerHTML = `<option value="">Error loading commodities</option>`;
     commoditySelect.disabled = true;
-    document.getElementById('commodityHint').textContent = '❌ Error loading commodities';
+    document.getElementById('commodityHint').textContent = '❌ Error loading commodities - try refreshing';
   }
 }
 

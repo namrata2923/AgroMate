@@ -463,22 +463,25 @@ _MANDI_RESOURCE = "9ef84268-d588-465a-a308-a864a43d0070"
 # Stores all market records fetched from data.gov.in in memory
 _MANDI_CACHE = []
 _MANDI_CACHE_LOADED = False
+_MANDI_CACHE_LOADING = False  # Flag to prevent multiple simultaneous loads
 
 def _load_mandi_cache():
     """
     Fetch ALL mandi records from data.gov.in API once and cache in memory.
-    This is called on app startup and significantly speeds up all queries.
+    This is called LAZILY on first request (not on startup) for faster startup.
     """
-    global _MANDI_CACHE, _MANDI_CACHE_LOADED
+    global _MANDI_CACHE, _MANDI_CACHE_LOADED, _MANDI_CACHE_LOADING
     
-    if _MANDI_CACHE_LOADED:
-        print("[DEBUG] Mandi cache already loaded")
-        return
+    if _MANDI_CACHE_LOADED or _MANDI_CACHE_LOADING:
+        return  # Already loaded or loading
     
-    print("[STARTUP] Loading mandi cache from data.gov.in...")
+    _MANDI_CACHE_LOADING = True
+    print("[CACHE] Starting lazy load of mandi data...")
+    
     try:
         if not DATA_GOV_API_KEY:
             print("[ERROR] DATA_GOV_API_KEY not configured - cache load failed")
+            _MANDI_CACHE_LOADING = False
             return
         
         params = {
@@ -491,7 +494,7 @@ def _load_mandi_cache():
         resp = http_requests.get(
             f"https://api.data.gov.in/resource/{_MANDI_RESOURCE}",
             params=params,
-            timeout=30  # Longer timeout for initial load
+            timeout=30
         )
         resp.raise_for_status()
         data = resp.json()
@@ -502,13 +505,15 @@ def _load_mandi_cache():
         states = set(r.get("state", "").strip() for r in _MANDI_CACHE if r.get("state"))
         commodities = set(r.get("commodity", "").strip() for r in _MANDI_CACHE if r.get("commodity"))
         
-        print(f"[STARTUP] ✓ Mandi cache loaded: {len(_MANDI_CACHE)} records")
-        print(f"[STARTUP] ✓ States: {len(states)} | Commodities: {len(commodities)}")
+        print(f"[CACHE] ✓ Lazy load complete: {len(_MANDI_CACHE)} records")
+        print(f"[CACHE] ✓ States: {len(states)} | Commodities: {len(commodities)}")
         
     except http_requests.exceptions.Timeout:
         print("[ERROR] Cache load timeout - data.gov.in API took too long")
     except Exception as e:
         print(f"[ERROR] Failed to load mandi cache: {str(e)}")
+    finally:
+        _MANDI_CACHE_LOADING = False
 
 # Commodity choices shown in the UI
 MARKET_COMMODITIES = [
@@ -603,15 +608,20 @@ def market_prices():
 def get_market_states():
     """Fetch all available states from cache (instant - no API call)"""
     try:
+        # Lazy load cache on first request
+        if not _MANDI_CACHE_LOADED and not _MANDI_CACHE_LOADING:
+            print("[DEBUG] get_market_states: Triggering lazy cache load...")
+            _load_mandi_cache()
+        
         if not _MANDI_CACHE:
-            print("[DEBUG] get_market_states: Cache not loaded yet")
-            return {"states": [], "error": "Cache not loaded"}, 503
+            print("[DEBUG] get_market_states: Cache still loading or empty, returning loading status")
+            return {"states": [], "loading": True, "message": "Loading market data... please wait"}, 202
         
         # Extract unique states from cache (instant lookup)
         states = sorted(list(set(r.get("state", "").strip() for r in _MANDI_CACHE if r.get("state"))))
         print(f"[DEBUG] get_market_states: Returning {len(states)} states from cache (instant)")
         
-        return {"states": states, "count": len(_MANDI_CACHE)}, 200
+        return {"states": states, "count": len(_MANDI_CACHE), "loading": False}, 200
     
     except Exception as e:
         print(f"[ERROR] get_market_states: {str(e)}")
@@ -628,9 +638,14 @@ def get_market_commodities():
         if not state:
             return {"commodities": [], "error": "State parameter required"}, 400
         
+        # Lazy load cache on first request
+        if not _MANDI_CACHE_LOADED and not _MANDI_CACHE_LOADING:
+            print("[DEBUG] get_market_commodities: Triggering lazy cache load...")
+            _load_mandi_cache()
+        
         if not _MANDI_CACHE:
-            print("[DEBUG] get_market_commodities: Cache not loaded yet")
-            return {"commodities": [], "error": "Cache not loaded"}, 503
+            print("[DEBUG] get_market_commodities: Cache still loading or empty")
+            return {"commodities": [], "loading": True, "message": "Loading market data... please wait"}, 202
         
         # Extract commodities for this state from cache (instant lookup)
         commodities = sorted(list(set(
@@ -640,7 +655,7 @@ def get_market_commodities():
         )))
         print(f"[DEBUG] get_market_commodities: {len(commodities)} commodities in {state} (instant from cache)")
         
-        return {"commodities": commodities, "state": state, "count": len(commodities)}, 200
+        return {"commodities": commodities, "state": state, "count": len(commodities), "loading": False}, 200
     
     except Exception as e:
         print(f"[ERROR] get_market_commodities: {str(e)}")
@@ -1131,7 +1146,6 @@ def logbook_generation():
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-        # Load mandi pricing data into cache on startup
-        print("[STARTUP] Loading market data cache...")
-        _load_mandi_cache()
+        # Cache loads lazily on first API request (not here on startup)
+        print("[STARTUP] ✓ AgroMate server starting... (market data will load on first request)")
     app.run(debug=True)
