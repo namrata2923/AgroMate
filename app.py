@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
@@ -7,6 +7,8 @@ from flask_login import (
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 from datetime import datetime
+import asyncio
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 import numpy as np
 import joblib
 import os
@@ -16,12 +18,92 @@ from PIL import Image
 from transformers import DeiTForImageClassification, DeiTImageProcessor, DeiTConfig
 import requests
 
+try:
+    from googletrans import Translator
+except Exception:
+    Translator = None
+
 load_dotenv()  # loads .env into environment variables
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-dev-key-change-me')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///agromate.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+LANGUAGES = {
+    'en': 'English',
+    'hi': 'Hindi',
+    'mr': 'Marathi'
+}
+
+TRANSLATION_SOURCE_LANG = 'en'
+MYMEMORY_TRANSLATE_URL = os.environ.get('MYMEMORY_TRANSLATE_URL', 'https://api.mymemory.translated.net/get')
+TRANSLATION_TIMEOUT_SECONDS = float(os.environ.get('TRANSLATION_TIMEOUT_SECONDS', '8'))
+GOOGLETRANS_TIMEOUT_SECONDS = float(os.environ.get('GOOGLETRANS_TIMEOUT_SECONDS', '2.0'))
+_TRANSLATION_CACHE = {}
+_translator = Translator() if Translator is not None else None
+_translate_pool = ThreadPoolExecutor(max_workers=8)
+
+
+def get_current_lang():
+    """Pick language from session first, then browser preferences."""
+    lang = session.get('lang')
+    if lang in LANGUAGES:
+        return lang
+    return request.accept_languages.best_match(list(LANGUAGES.keys())) or 'en'
+
+
+def _translate_text_googletrans(text, target_lang):
+    """Translate text with googletrans and cache results in memory."""
+    if not text or target_lang == TRANSLATION_SOURCE_LANG:
+        return text
+
+    cache_key = (TRANSLATION_SOURCE_LANG, target_lang, text)
+    if cache_key in _TRANSLATION_CACHE:
+        return _TRANSLATION_CACHE[cache_key]
+
+    translated = text
+
+    # Primary provider: googletrans (bounded by timeout to avoid hanging requests)
+    if _translator is not None:
+        try:
+            def _run_googletrans_call():
+                out = _translator.translate(text, src=TRANSLATION_SOURCE_LANG, dest=target_lang)
+                if asyncio.iscoroutine(out):
+                    return asyncio.run(out)
+                return out
+
+            future = _translate_pool.submit(_run_googletrans_call)
+            out = future.result(timeout=GOOGLETRANS_TIMEOUT_SECONDS)
+            candidate = (getattr(out, 'text', '') or '').strip()
+            if candidate and candidate.lower() != text.strip().lower():
+                translated = candidate
+        except FutureTimeout:
+            translated = text
+        except Exception:
+            translated = text
+
+    # Fallback provider: MyMemory for short UI labels where googletrans often returns unchanged text.
+    if translated == text:
+        try:
+            response = requests.get(
+                MYMEMORY_TRANSLATE_URL,
+                params={
+                    'q': text,
+                    'langpair': f'{TRANSLATION_SOURCE_LANG}|{target_lang}'
+                },
+                timeout=min(TRANSLATION_TIMEOUT_SECONDS, 3.0),
+            )
+            if response.ok:
+                data = response.json()
+                candidate = ((data.get('responseData') or {}).get('translatedText') or '').strip()
+                if candidate:
+                    translated = candidate
+        except Exception:
+            translated = text
+
+    _TRANSLATION_CACHE[cache_key] = translated
+    return translated
 
 # ─────────────────────────────────────────────
 #  Load trained ML models
@@ -99,6 +181,38 @@ class User(UserMixin, db.Model):
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
+
+
+@app.context_processor
+def inject_language_context():
+    return {
+        'languages': LANGUAGES,
+        'current_lang': get_current_lang()
+    }
+
+
+@app.route('/api/translate-batch', methods=['POST'])
+def translate_batch():
+    """Translate a batch of UI strings for client-side i18n."""
+    data = request.get_json(silent=True) or {}
+    texts = data.get('texts', [])
+    target_lang = data.get('target') or get_current_lang()
+
+    if target_lang not in LANGUAGES:
+        return {'translations': {}}, 400
+
+    if not isinstance(texts, list):
+        return {'translations': {}}, 400
+
+    texts = [str(t) for t in texts[:500] if isinstance(t, str) and t.strip()]
+
+    translations = {}
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        translated_values = list(pool.map(lambda t: _translate_text_googletrans(t, target_lang), texts))
+    for src, out in zip(texts, translated_values):
+        translations[src] = out
+
+    return {'translations': translations, 'target': target_lang}, 200
 
 # ─────────────────────────────────────────────
 #  Dummy ML prediction helpers
@@ -303,6 +417,14 @@ def about():
 @app.route("/contact")
 def contact():
     return render_template("contact.html")
+
+
+@app.route('/set-language/<lang_code>')
+def set_language(lang_code):
+    """Store language preference in session and return to previous page."""
+    if lang_code in LANGUAGES:
+        session['lang'] = lang_code
+    return redirect(request.referrer or url_for('index'))
 
 
 # ── Protected ML Services ─────────────────────

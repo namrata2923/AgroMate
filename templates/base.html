@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang or 'en' }}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}AgroMate – Smart Insights for Better Farming{% endblock %}</title>
+  <title>{% block title %}AgroMate - Smart Insights for Better Farming{% endblock %}</title>
 
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}" />
@@ -28,7 +28,7 @@
   {% block extra_head %}{% endblock %}
 </head>
 
-<body>
+<body data-current-lang="{{ current_lang or 'en' }}" data-default-lang="en">
   <!-- ==================== TOPBAR ==================== -->
   <div class="topbar d-none d-md-block">
     <div class="container d-flex justify-content-between align-items-center py-2">
@@ -70,11 +70,11 @@
         <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-1">
           <li class="nav-item">
             <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}"
-               href="{{ url_for('index') }}">Home</a>
+              href="{{ url_for('index') }}">Home</a>
           </li>
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle {% if request.endpoint in ['crop_prediction','fertilizer_recommendation','disease_detection','weather_insights','market_prices','logbook_generation'] %}active{% endif %}"
-               href="#" data-bs-toggle="dropdown">Services</a>
+              href="#" data-bs-toggle="dropdown">Services</a>
             <ul class="dropdown-menu dropdown-menu-end site-dropdown">
               <li>
                 <a class="dropdown-item" href="{{ url_for('crop_prediction') }}">
@@ -111,11 +111,25 @@
           </li>
           <li class="nav-item">
             <a class="nav-link {% if request.endpoint == 'about' %}active{% endif %}"
-               href="{{ url_for('about') }}">About</a>
+              href="{{ url_for('about') }}">About</a>
           </li>
           <li class="nav-item">
             <a class="nav-link {% if request.endpoint == 'contact' %}active{% endif %}"
-               href="{{ url_for('contact') }}">Contact</a>
+              href="{{ url_for('contact') }}">Contact</a>
+          </li>
+          <li class="nav-item dropdown ms-lg-2">
+            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="bi bi-translate me-1"></i>
+              {{ languages.get(current_lang, 'Language') }}
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end site-dropdown">
+              {% for code, name in languages.items() %}
+              <li>
+                 <a class="dropdown-item {% if code == current_lang %}active{% endif %}"
+                   href="{{ url_for('set_language', lang_code=code) }}">{{ name }}</a>
+              </li>
+              {% endfor %}
+            </ul>
           </li>
           <li class="nav-item ms-lg-3">
             {% if current_user.is_authenticated %}
@@ -230,7 +244,7 @@
     <div class="footer-bottom">
       <div class="container text-center">
         <p class="mb-0">
-          &copy; 2026 <strong>AgroMate</strong>. All rights reserved. –
+          &copy; 2026 <strong>AgroMate</strong>. All rights reserved. -
           Smart Insights for Better Farming
         </p>
       </div>
@@ -245,6 +259,7 @@
   <!-- ==================== SCRIPTS ==================== -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.min.js"></script>
+  <script src="{{ url_for('static', filename='js/translator.js', v='6') }}"></script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
   {% block extra_scripts %}{% endblock %}
@@ -289,7 +304,7 @@
     <!-- Input bar -->
     <div class="agrobot-input-bar">
       <textarea id="agrobot-input"
-                placeholder="Ask about crops, diseases, soil…"
+                placeholder="Ask about crops, diseases, soil..."
                 rows="1"
                 aria-label="Type your agriculture question"></textarea>
       <button id="agrobot-send" aria-label="Send message">
