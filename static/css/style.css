@@ -624,8 +624,8 @@ h1,h2,h3,h4,h5,h6 { font-family: var(--font-heading); font-weight: 700; }
 .team-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); }
 .team-avatar {
   width: 100px; height: 100px; border-radius: 50%;
-  object-fit: cover; border: 3px solid var(--green-light);
-  margin-bottom: .75rem;
+  object-fit: cover; object-position: center top; border: 3px solid var(--green-light);
+  margin-bottom: .75rem; display: block;
 }
 .team-name { font-size: 1rem; font-weight: 700; margin-bottom: .2rem; }
 .team-role { display: inline-block; background: var(--green-pale); color: var(--green-dark); padding: .2rem .75rem; border-radius: 50px; font-size: .78rem; font-weight: 600; margin-bottom: .75rem; }

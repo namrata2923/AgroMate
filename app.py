@@ -4,6 +4,7 @@ from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
     login_required, current_user
 )
+from flask_mail import Mail, Message
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 from datetime import datetime
@@ -29,6 +30,16 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-dev-key-change-me')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///agromate.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Email Configuration
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', 'namratagentyal2003@gmail.com')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', '')
+app.config['MAIL_DEFAULT_SENDER'] = 'namratagentyal2003@gmail.com'
+
+mail = Mail(app)
 
 LANGUAGES = {
     'en': 'English',
@@ -414,8 +425,69 @@ def about():
     return render_template("about.html")
 
 
-@app.route("/contact")
+@app.route("/contact", methods=["GET", "POST"])
 def contact():
+    if request.method == "POST":
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        phone = request.form.get('phone', '').strip()
+        subject = request.form.get('subject', 'General Enquiry').strip()
+        message = request.form.get('message', '').strip()
+        
+        if not all([name, email, message]):
+            flash("Please fill in all required fields.", "danger")
+            return redirect(url_for('contact'))
+        
+        try:
+            # Email to AgroMate team
+            msg = Message(
+                subject=f"New Contact Form Submission: {subject}",
+                recipients=['namratagentyal2003@gmail.com'],
+                html=f"""
+                <html>
+                    <body style="font-family: Arial, sans-serif;">
+                        <h2>New Contact Form Message</h2>
+                        <p><strong>Name:</strong> {name}</p>
+                        <p><strong>Email:</strong> {email}</p>
+                        <p><strong>Phone:</strong> {phone if phone else 'Not provided'}</p>
+                        <p><strong>Subject:</strong> {subject}</p>
+                        <hr>
+                        <p><strong>Message:</strong></p>
+                        <p>{message}</p>
+                    </body>
+                </html>
+                """
+            )
+            mail.send(msg)
+            
+            # Confirmation email to user
+            confirm_msg = Message(
+                subject="We received your message - AgroMate",
+                recipients=[email],
+                html=f"""
+                <html>
+                    <body style="font-family: Arial, sans-serif;">
+                        <h2>Thank you for contacting AgroMate!</h2>
+                        <p>Hi {name},</p>
+                        <p>We have received your message and will get back to you as soon as possible.</p>
+                        <p><strong>Your Message Details:</strong></p>
+                        <p><strong>Subject:</strong> {subject}</p>
+                        <p><strong>Message:</strong> {message}</p>
+                        <hr>
+                        <p>Best regards,<br>AgroMate Team</p>
+                    </body>
+                </html>
+                """
+            )
+            mail.send(confirm_msg)
+            
+            flash("Thank you! Your message has been sent successfully. We will contact you soon.", "success")
+            return redirect(url_for('contact'))
+        except Exception as e:
+            flash(f"Error sending message. Please try again later.", "danger")
+            print(f"Email error: {str(e)}")
+            return redirect(url_for('contact'))
+    
     return render_template("contact.html")
 
 

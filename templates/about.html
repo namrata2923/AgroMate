@@ -25,8 +25,8 @@
   <div class="container">
     <div class="row align-items-center gy-5">
       <div class="col-lg-6" data-aos="fade-right">
-        <img src="https://images.unsplash.com/photo-1592878904946-b3cd8ae243d0?w=700&q=80"
-             alt="Agriculture" class="img-fluid rounded-4 shadow" />
+        <img src="https://images.unsplash.com/photo-1574943320219-553eb213f72d?w=700&q=80"
+             alt="Farmer in fields" class="img-fluid rounded-4 shadow" />
       </div>
       <div class="col-lg-6" data-aos="fade-left">
         <span class="section-tag">OUR STORY</span>
@@ -84,14 +84,14 @@
     </div>
     <div class="row g-4 justify-content-center">
       {% for member in [
-          {"name":"Aarav Sharma","role":"ML Engineer","img":"11","desc":"Specialises in crop prediction models and NLP for agri-reports."},
-          {"name":"Priya Nair","role":"Data Scientist","img":"35","desc":"Leads dataset curation, feature engineering and model validation."},
-          {"name":"Rajan Mehta","role":"Backend Developer","img":"61","desc":"Architects the Flask APIs and cloud deployment pipeline."},
-          {"name":"Ananya Roy","role":"UI/UX Designer","img":"47","desc":"Crafts the user experience to be intuitive for farmers."}
+          {"name":"Namrata","role":"Team Lead & Full Stack Developer","img":"Namrata.jpeg","desc":"Main developer and project lead. Builds the core Flask backend and integrates ML models into production."},
+          {"name":"Kalyani","role":"Frontend & UI Developer","img":"kalyani.jpeg","desc":"Designs and develops responsive web interfaces. Creates seamless user experience for farmers."},
+          {"name":"Sneha","role":"ML Model & Data Scientist","img":"Sneha.jpeg","desc":"Develops and trains machine learning models for crop and disease prediction. Handles dataset optimization."},
+          {"name":"Vaibhavi","role":"Backend & Database Developer","img":"Vaibhavi.jpeg","desc":"Manages database architecture, API optimization, and server infrastructure. Ensures system scalability."}
       ] %}
       <div class="col-lg-3 col-md-6" data-aos="zoom-in" data-aos-delay="{{ loop.index * 100 }}">
         <div class="team-card">
-          <img src="https://i.pravatar.cc/160?img={{ member.img }}" alt="{{ member.name }}" class="team-avatar" />
+          <img src="{{ url_for('static', filename='img/' + member.img) }}" alt="{{ member.name }}" class="team-avatar" />
           <h5 class="team-name">{{ member.name }}</h5>
           <span class="team-role">{{ member.role }}</span>
           <p class="team-desc text-muted small">{{ member.desc }}</p>

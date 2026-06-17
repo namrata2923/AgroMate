@@ -24,6 +24,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, classification_report
 import joblib
+from urllib.error import URLError
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
@@ -34,10 +35,11 @@ MODEL_PATH   = os.path.join(MODELS_DIR, "crop_model.pkl")
 ENCODER_PATH = os.path.join(MODELS_DIR, "crop_label_encoder.pkl")
 
 # Mirror URLs for auto-download (tried first; falls back to synthetic if all fail)
+# Using Kaggle dataset URLs which are more reliable
 DATASET_URLS = [
+    "https://www.kaggle.com/api/v1/datasets/download/jsphillips/crop-recommendation-clustering/Crop_recommendation.csv",
     "https://raw.githubusercontent.com/Gladiator07/Harvestify/master/Data-raw/crop_recommendation.csv",
     "https://raw.githubusercontent.com/dsrscientist/dataset1/master/Crop_recommendation.csv",
-    "https://raw.githubusercontent.com/SrinivasBathula/crop-recommendation/main/Crop_recommendation.csv",
 ]
 
 # ── Synthetic dataset generator ───────────────────────────────────────────────
@@ -94,6 +96,17 @@ def generate_synthetic_dataset():
 
 # ── Load or create dataset ────────────────────────────────────────────────────
 os.makedirs(DATA_DIR, exist_ok=True)
+def is_valid_csv(file_path):
+    """Check if downloaded file is a valid CSV, not an HTML error page."""
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            first_line = f.readline()
+            # If it starts with HTML tags or is very short, it's not a CSV
+            if first_line.startswith('<') or (len(first_line) < 5):
+                return False
+        return True
+    except:
+        return False
 
 if not os.path.exists(DATA_PATH):
     print("Dataset not found locally. Attempting auto-download...\n")
@@ -102,10 +115,19 @@ if not os.path.exists(DATA_PATH):
         try:
             print(f"  Trying: {url}")
             urllib.request.urlretrieve(url, DATA_PATH)
-            print("  ✓ Downloaded successfully!\n")
-            downloaded = True
-            break
-        except Exception as e:
+            
+            # Validate that it's actually a CSV, not an HTML error page
+            if is_valid_csv(DATA_PATH):
+                print("  ✓ Downloaded successfully!\n")
+                downloaded = True
+                break
+            else:
+                print("  ✗ Downloaded file is not a valid CSV (likely HTML error page)")
+                os.remove(DATA_PATH)
+        except (URLError, Exception) as e:
+            print(f"  ✗ Failed: {e}")
+            if os.path.exists(DATA_PATH):
+                os.remove(DATA_PATH)
             print(f"  ✗ Failed: {e}")
 
     if not downloaded:

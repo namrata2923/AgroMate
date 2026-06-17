@@ -48,7 +48,7 @@
           <div class="contact-icon"><i class="bi bi-envelope-fill"></i></div>
           <div>
             <h6 class="fw-bold mb-0">Email</h6>
-            <p class="text-muted small mb-0">hello@agromate.ai</p>
+            <p class="text-muted small mb-0">namratagentyal2003@gmail.com</p>
           </div>
         </div>
 
@@ -75,23 +75,23 @@
       <div class="col-lg-8" data-aos="fade-left">
         <div class="contact-form-card">
           <h4 class="fw-bold mb-4">Send Us a Message</h4>
-          <form>
+          <form method="POST" action="{{ url_for('contact') }}">
             <div class="row g-3">
               <div class="col-md-6">
                 <label class="form-label fw-semibold">Your Name</label>
-                <input type="text" class="form-control" placeholder="e.g. Ramesh Patil" required />
+                <input type="text" name="name" class="form-control" placeholder="e.g. Ramesh Patil" required />
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-semibold">Email Address</label>
-                <input type="email" class="form-control" placeholder="you@example.com" required />
+                <input type="email" name="email" class="form-control" placeholder="you@example.com" required />
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-semibold">Phone</label>
-                <input type="tel" class="form-control" placeholder="+91 xxxxx xxxxx" />
+                <input type="tel" name="phone" class="form-control" placeholder="+91 xxxxx xxxxx" />
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-semibold">Subject</label>
-                <select class="form-select">
+                <select name="subject" class="form-select">
                   <option>General Enquiry</option>
                   <option>Technical Support</option>
                   <option>Partnership</option>
@@ -101,7 +101,7 @@
               </div>
               <div class="col-12">
                 <label class="form-label fw-semibold">Message</label>
-                <textarea class="form-control" rows="5"
+                <textarea name="message" class="form-control" rows="5"
                           placeholder="Write your message here..." required></textarea>
               </div>
               <div class="col-12">
