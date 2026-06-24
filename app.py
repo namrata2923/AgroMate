@@ -644,216 +644,94 @@ def weather_insights():
     return render_template("weather_insights.html", weather=weather_data)
 
 
-# ── Crop Market Prices ────────────────────────
+# ── Crop Market Prices from Local CSV ────────────────────────
 
-import requests as http_requests
+import pandas as pd
+from flask import Response
+import csv
 
-DATA_GOV_API_KEY = os.environ.get('DATA_GOV_API_KEY', '')
+MANDI_CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "mandi_prices.csv")
 
-# data.gov.in resource ID for daily mandi prices
-_MANDI_RESOURCE = "9ef84268-d588-465a-a308-a864a43d0070"
-
-# ─── CACHE FOR MANDI PRICES DATA (Speeds up lookups) ──────────
-# Stores all market records fetched from data.gov.in in memory
-_MANDI_CACHE = []
-_MANDI_CACHE_LOADED = False
-_MANDI_CACHE_LOADING = False  # Flag to prevent multiple simultaneous loads
-
-def _load_mandi_cache():
-    """
-    Fetch ALL mandi records from data.gov.in API once and cache in memory.
-    This is called LAZILY on first request (not on startup) for faster startup.
-    """
-    global _MANDI_CACHE, _MANDI_CACHE_LOADED, _MANDI_CACHE_LOADING
-    
-    if _MANDI_CACHE_LOADED or _MANDI_CACHE_LOADING:
-        return  # Already loaded or loading
-    
-    _MANDI_CACHE_LOADING = True
-    print("[CACHE] Starting lazy load of mandi data...")
-    
-    try:
-        if not DATA_GOV_API_KEY:
-            print("[ERROR] DATA_GOV_API_KEY not configured - cache load failed")
-            _MANDI_CACHE_LOADING = False
-            return
-        
-        params = {
-            "api-key": DATA_GOV_API_KEY,
-            "format": "json",
-            "limit": 10000,  # Get as many records as possible
-            "offset": 0
-        }
-        
-        resp = http_requests.get(
-            f"https://api.data.gov.in/resource/{_MANDI_RESOURCE}",
-            params=params,
-            timeout=30
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        _MANDI_CACHE = data.get("records", [])
-        _MANDI_CACHE_LOADED = True
-        
-        # Extract and log stats
-        states = set(r.get("state", "").strip() for r in _MANDI_CACHE if r.get("state"))
-        commodities = set(r.get("commodity", "").strip() for r in _MANDI_CACHE if r.get("commodity"))
-        
-        print(f"[CACHE] ✓ Lazy load complete: {len(_MANDI_CACHE)} records")
-        print(f"[CACHE] ✓ States: {len(states)} | Commodities: {len(commodities)}")
-        
-    except http_requests.exceptions.Timeout:
-        print("[ERROR] Cache load timeout - data.gov.in API took too long")
-    except Exception as e:
-        print(f"[ERROR] Failed to load mandi cache: {str(e)}")
-    finally:
-        _MANDI_CACHE_LOADING = False
-
-# Commodity choices shown in the UI
-MARKET_COMMODITIES = [
-    "Tomato", "Potato", "Onion", "Rice", "Wheat", "Maize",
-    "Soyabean", "Cotton", "Sugarcane", "Groundnut", "Mustard",
-    "Brinjal", "Cabbage", "Cauliflower", "Garlic", "Ginger",
-    "Green Chilli", "Banana", "Mango", "Grapes"
-]
-
-
-MARKET_SORT_FIELDS = [
-    ("market",        "Market"),
-    ("state",         "State"),
-    ("district",      "District"),
-    ("commodity",     "Commodity"),
-    ("variety",       "Variety"),
-    ("arrival_date",  "Arrival Date"),
-    ("min_price",     "Min Price"),
-    ("max_price",     "Max Price"),
-    ("modal_price",   "Modal Price"),
-]
 
 @app.route("/market-prices", methods=["GET", "POST"])
 @login_required
 def market_prices():
-    records    = []
-    error      = None
-    commodity  = "Tomato"
-    state      = ""
+    records = []
+    error = None
+    commodity = ""
+    state = ""
 
-    if request.method == "POST" or request.args.get("commodity"):
-        commodity  = (request.form.get("commodity")   or request.args.get("commodity", "Tomato")).strip()
-        state      = (request.form.get("state", "")   or request.args.get("state", "")).strip()
+    if request.method == "POST" or (request.args.get("commodity") and request.args.get("state")):
+        commodity = (request.form.get("commodity") or request.args.get("commodity", "")).strip()
+        state = (request.form.get("state") or request.args.get("state", "")).strip()
 
         if not state:
-            error = "Please enter a state name."
-        elif not _MANDI_CACHE:
-            error = "Market data cache is not loaded yet. Please try again in a moment."
+            error = "❌ Please enter a state name."
+        elif not commodity:
+            error = "❌ Please enter a commodity name."
         else:
-            # Search in cache (no API call!)
-            print(f"[DEBUG] Cache Search: commodity='{commodity}', state='{state}'")
-            print(f"[DEBUG] Cache contains {len(_MANDI_CACHE)} total records")
-            
-            # Filter cache by state and commodity (case-insensitive)
-            records = [
-                r for r in _MANDI_CACHE
-                if r.get("state", "").strip().lower() == state.lower()
-                and r.get("commodity", "").strip().lower() == commodity.lower()
-            ]
-            
-            print(f"[DEBUG] Cache Results: {len(records)} records found")
-            
-            if not records:
-                error = f"No market data found for '{commodity}' in {state}. Try checking the spelling or try a different commodity."
-                
-                # Suggest available states from cache
-                available_states = sorted(list(set(
-                    r.get("state", "").strip() for r in _MANDI_CACHE if r.get("state")
-                )))
-                print(f"[DEBUG] Available states in cache: {available_states}")
-                if available_states:
-                    error += f"\n\nAvailable states: {', '.join(available_states)}"
+            try:
+                df = pd.read_csv(MANDI_CSV_PATH)
 
-    # CSV export
+                required_columns = [
+                    "state", "district", "market", "commodity", "variety",
+                    "grade", "arrival_date", "min_price", "max_price", "modal_price"
+                ]
+
+                missing_columns = [col for col in required_columns if col not in df.columns]
+                if missing_columns:
+                    error = "❌ CSV file is missing columns: " + ", ".join(missing_columns)
+                else:
+                    df["state"] = df["state"].astype(str).str.strip()
+                    df["commodity"] = df["commodity"].astype(str).str.strip()
+
+                    result_df = df[
+                        (df["state"].str.lower() == state.lower()) &
+                        (df["commodity"].str.lower() == commodity.lower())
+                    ]
+
+                    if result_df.empty:
+                        error = f"❌ No market data found for '{commodity}' in '{state}'."
+                        error += "\n✅ Tip: Check spelling exactly as it appears in the CSV file."
+                    else:
+                        result_df = result_df.sort_values(by=["district", "market"])
+                        records = result_df.to_dict(orient="records")
+
+            except FileNotFoundError:
+                error = "❌ mandi_prices.csv not found. Keep it inside the data folder."
+            except Exception as e:
+                error = f"❌ Error reading CSV file: {str(e)}"
+
     if records and request.args.get("export") == "csv":
-        import csv, io
         si = io.StringIO()
-        writer = csv.DictWriter(si, fieldnames=["state","district","market","commodity","variety","arrival_date","min_price","max_price","modal_price"])
-        writer.writeheader()
-        for r in records:
-            writer.writerow({k: r.get(k, "") for k in writer.fieldnames})
-        output = si.getvalue()
-        from flask import Response
-        return Response(output, mimetype="text/csv",
-                        headers={"Content-Disposition": f"attachment;filename=market_prices_{commodity}_{state}.csv"})
+        fieldnames = [
+            "state", "district", "market", "commodity", "variety",
+            "grade", "arrival_date", "min_price", "max_price", "modal_price"
+        ]
 
-    # Debug: Log what gets rendered
-    print(f"[DEBUG] RENDER: commodity='{commodity}', state='{state}', records_count='{len(records)}'")
-    
+        writer = csv.DictWriter(si, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for r in records:
+            writer.writerow({k: r.get(k, "") for k in fieldnames})
+
+        output = si.getvalue()
+
+        return Response(
+            output,
+            mimetype="text/csv",
+            headers={
+                "Content-Disposition": f"attachment;filename=market_prices_{commodity}_{state}.csv"
+            }
+        )
+
     return render_template(
         "market_prices.html",
         records=records,
         commodity=commodity,
         state=state,
-        commodities=MARKET_COMMODITIES,
         error=error
     )
-
-
-@app.route("/api/market-states", methods=["GET"])
-@login_required
-def get_market_states():
-    """Fetch all available states from cache (instant - no API call)"""
-    try:
-        # Lazy load cache on first request
-        if not _MANDI_CACHE_LOADED and not _MANDI_CACHE_LOADING:
-            print("[DEBUG] get_market_states: Triggering lazy cache load...")
-            _load_mandi_cache()
-        
-        if not _MANDI_CACHE:
-            print("[DEBUG] get_market_states: Cache still loading or empty, returning loading status")
-            return {"states": [], "loading": True, "message": "Loading market data... please wait"}, 202
-        
-        # Extract unique states from cache (instant lookup)
-        states = sorted(list(set(r.get("state", "").strip() for r in _MANDI_CACHE if r.get("state"))))
-        print(f"[DEBUG] get_market_states: Returning {len(states)} states from cache (instant)")
-        
-        return {"states": states, "count": len(_MANDI_CACHE), "loading": False}, 200
-    
-    except Exception as e:
-        print(f"[ERROR] get_market_states: {str(e)}")
-        return {"states": [], "error": str(e)}, 500
-
-
-@app.route("/api/market-commodities", methods=["GET"])
-@login_required
-def get_market_commodities():
-    """Fetch commodities available for a given state (from cache - instant)"""
-    try:
-        state = request.args.get("state", "").strip()
-        
-        if not state:
-            return {"commodities": [], "error": "State parameter required"}, 400
-        
-        # Lazy load cache on first request
-        if not _MANDI_CACHE_LOADED and not _MANDI_CACHE_LOADING:
-            print("[DEBUG] get_market_commodities: Triggering lazy cache load...")
-            _load_mandi_cache()
-        
-        if not _MANDI_CACHE:
-            print("[DEBUG] get_market_commodities: Cache still loading or empty")
-            return {"commodities": [], "loading": True, "message": "Loading market data... please wait"}, 202
-        
-        # Extract commodities for this state from cache (instant lookup)
-        commodities = sorted(list(set(
-            r.get("commodity", "").strip() 
-            for r in _MANDI_CACHE 
-            if r.get("state", "").strip().lower() == state.lower() and r.get("commodity")
-        )))
-        print(f"[DEBUG] get_market_commodities: {len(commodities)} commodities in {state} (instant from cache)")
-        
-        return {"commodities": commodities, "state": state, "count": len(commodities), "loading": False}, 200
-    
-    except Exception as e:
-        print(f"[ERROR] get_market_commodities: {str(e)}")
-        return {"commodities": [], "error": str(e)}, 500
 
 
 # ── Chatbot (Groq – llama-3.3-70b-versatile) ──
@@ -964,7 +842,7 @@ def _geocode_location(location_name):
 
     for candidate in candidates:
         try:
-            resp = http_requests.get(
+            resp = requests.get(
                 "https://geocoding-api.open-meteo.com/v1/search",
                 params={"name": candidate, "count": 1, "language": "en", "format": "json"},
                 timeout=10,
@@ -989,7 +867,7 @@ def _get_soil_data(lat, lon):
         params = [("lat", lat), ("lon", lon), ("depth", "0-5cm"), ("value", "mean")]
         for p in properties:
             params.append(("property", p))
-        resp = http_requests.get(
+        resp = requests.get(
             "https://rest.isric.org/soilgrids/v2.0/properties/query",
             params=params,
             timeout=20,
@@ -1014,7 +892,7 @@ def _get_soil_data(lat, lon):
 def _get_weather_for_logbook(lat, lon):
     """Fetch current conditions + 7-day forecast from Open-Meteo (free, no API key)."""
     try:
-        resp = http_requests.get(
+        resp = requests.get(
             "https://api.open-meteo.com/v1/forecast",
             params={
                 "latitude":  lat,
@@ -1075,7 +953,7 @@ def _weather_summary(w):
     return "\n".join(lines) or "Weather data unavailable."
 
 
-_LOGBOOK_SYSTEM_PROMPT = """You are a friendly and knowledgeable farming advisor who helps Indian farmers. You write farm plans in simple, everyday language that any farmer can understand and follow — even someone who studied only up to class 8.
+_LOGBOOK_SYSTEM_PROMPT = """You are a friendly and knowledgeable farming advisor who helps Indian farmers. You write farm plans in simple, everyday language that any farmer can understand and follow.
 
 Rules:
 - Write like a helpful friend, not a textbook. Use simple words.
@@ -1176,7 +1054,7 @@ Mention popular Indian brand names (e.g. Urea, DAP, MOP, 12:32:16, Polyfeed, Mul
 Generate the following sections:
 
 ## 🌱 What Your Soil Needs
-Look at the soil data above and explain in 3-4 simple sentences what the soil is lacking or has enough of. Use language like: "Your soil has low nitrogen — this means your crop will grow slowly without extra help" or "Your soil is slightly acidic — this is okay for {crop}".
+Look at the soil data above and explain in 3-4 simple sentences what the soil is lacking or has enough of. Use language like: "Your soil has low nitrogen — this means your crop will grow slowly".
 
 ## 📅 Week-by-Week Fertilizer Plan
 Write a simple weekly fertilizer plan from land preparation to just before harvest. For each entry use this format:
@@ -1236,7 +1114,7 @@ Write a simple weekly watering plan from sowing to harvest. For each entry use t
 Mark the stages where skipping water will damage the crop as **⚠️ CRITICAL — Do not skip**.
 
 ## 🚿 Which Irrigation Method is Best for You?
-Explain in simple words the difference between flood irrigation, sprinkler, and drip irrigation. Tell the farmer which one suits {crop} and this soil type best, and roughly what each costs to set up per acre.
+Explain in simple words the difference between flood irrigation, sprinkler, and drip irrigation. Tell the farmer which one suits {crop} and this soil type best, and roughly what each costs to set up.
 
 ## 🌧️ What to Do When It Rains
 Write 4-5 simple rules for adjusting watering when it rains. Example: "If it rains more than 25 mm, skip the next 2 waterings".
@@ -1341,5 +1219,5 @@ if __name__ == "__main__":
     with app.app_context():
         db.create_all()
         # Cache loads lazily on first API request (not here on startup)
-        print("[STARTUP] ✓ AgroMate server starting... (market data will load on first request)")
+        print("[STARTUP] ✓ AgroMate server starting...")
     app.run(debug=True)
